@@ -36,6 +36,8 @@ jobs:
       - name: Generate application icon
         env:
           QT_QPA_PLATFORM: offscreen
+          PYTHONUTF8: "1"
+          PYTHONIOENCODING: utf-8
         run: python tools/make_ico.py
 
       - name: Build single-file executable
