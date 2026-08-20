@@ -1,0 +1,99 @@
+name: Release
+
+# Тег вида v1.0.0 -> сборка exe и публикация архива в Releases
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip -r requirements.txt
+          python -m pip install pyinstaller
+
+      - name: Run test suite
+        env:
+          QT_QPA_PLATFORM: offscreen
+          PYTHONUTF8: "1"
+          PYTHONIOENCODING: utf-8
+        run: python tests/test_pyshot.py
+
+      - name: Generate application icon
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python tools/make_ico.py
+
+      - name: Build single-file executable
+        run: >
+          python -m PyInstaller --noconfirm --clean --noconsole --onefile
+          --name PyShot --icon assets/PyShot.ico
+          --exclude-module PySide6.QtQml --exclude-module PySide6.QtQuick
+          --exclude-module PySide6.QtQuickWidgets
+          --exclude-module PySide6.Qt3DCore
+          --exclude-module PySide6.QtWebEngineCore
+          --exclude-module PySide6.QtMultimedia
+          --exclude-module tkinter --exclude-module unittest
+          main.py
+
+      - name: Pack the archive
+        shell: pwsh
+        run: |
+          $stage = Join-Path $env:RUNNER_TEMP 'PyShot'
+          New-Item -ItemType Directory -Force -Path (Join-Path $stage 'tools') | Out-Null
+          Copy-Item 'dist/PyShot.exe'        $stage
+          Copy-Item 'Установить PyShot.bat'  $stage
+          Copy-Item 'tools/install.ps1'      (Join-Path $stage 'tools')
+          Copy-Item 'tools/uninstall.ps1'    (Join-Path $stage 'tools')
+          Copy-Item 'README.md','README.ru.md','LICENSE','CHANGELOG.md' $stage
+          Compress-Archive -Path $stage -DestinationPath "PyShot-${{ github.ref_name }}-windows.zip" -Force
+          Get-Item "PyShot-${{ github.ref_name }}-windows.zip" |
+            Select-Object Name, @{n='MB';e={[math]::Round($_.Length/1MB,1)}}
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $notes = @"
+          ## Установка
+
+          Скачайте ``PyShot-${{ github.ref_name }}-windows.zip``, распакуйте
+          и запустите **Установить PyShot.bat**. Windows один раз спросит права
+          администратора, программа встанет в ``C:\Program Files\PyShot``,
+          добавит ярлык в «Пуск» и запись в «Параметрах → Приложения».
+          Python не нужен.
+
+          Горячие клавиши по умолчанию: ``Ctrl+4`` — область или окно,
+          ``Ctrl+5`` — весь экран, ``Ctrl+6`` — съёмка по таймеру.
+          Полное описание — в [README.ru.md](README.ru.md).
+
+          ## Installation
+
+          Download ``PyShot-${{ github.ref_name }}-windows.zip``, unpack it and
+          run **Установить PyShot.bat**. Windows asks for administrator rights
+          once; the program is installed to ``C:\Program Files\PyShot`` with a
+          Start menu shortcut and an entry in Settings → Apps. No Python needed.
+
+          See [README.md](README.md) for the full description and
+          [CHANGELOG.md](CHANGELOG.md) for what is in this version.
+          "@
+          $notes | Out-File -FilePath release-notes.md -Encoding utf8
+          gh release create "${{ github.ref_name }}" `
+            "PyShot-${{ github.ref_name }}-windows.zip" `
+            --title "PyShot ${{ github.ref_name }}" `
+            --notes-file release-notes.md
