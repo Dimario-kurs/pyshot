@@ -1,0 +1,7 @@
+# Единый перевод строк в репозитории, CRLF только там, где он нужен Windows
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+*.png binary
+*.ico binary

@@ -1,0 +1,32 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+
+# --- PyInstaller ---
+build/
+dist/
+*.spec
+*.manifest
+
+# --- Windows ---
+Thumbs.db
+ehthumbs.db
+desktop.ini
+*.lnk
+
+# --- Редакторы ---
+.vscode/
+.idea/
+*.swp
+*~
+
+# --- Локальное ---
+.env
+*.log

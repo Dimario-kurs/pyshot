@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Tests (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip -r requirements.txt
+
+      - name: Byte-compile sources
+        run: python -m compileall -q main.py pyshot tools tests
+
+      - name: Run test suite
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python tests/test_pyshot.py
+
+  build:
+    name: Build PyShot.exe
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip -r requirements.txt
+          python -m pip install pyinstaller
+
+      - name: Generate application icon
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python tools/make_ico.py
+
+      - name: Build single-file executable
+        run: >
+          python -m PyInstaller --noconfirm --clean --noconsole --onefile
+          --name PyShot --icon assets/PyShot.ico
+          --exclude-module PySide6.QtQml --exclude-module PySide6.QtQuick
+          --exclude-module PySide6.QtQuickWidgets
+          --exclude-module PySide6.Qt3DCore
+          --exclude-module PySide6.QtWebEngineCore
+          --exclude-module PySide6.QtMultimedia
+          --exclude-module tkinter --exclude-module unittest
+          main.py
+
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: PyShot-windows
+          path: dist/PyShot.exe
+          if-no-files-found: error
