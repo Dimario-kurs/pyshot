@@ -134,6 +134,14 @@ EN = {
     " сек": " s",
     "Задержка по умолчанию:": "Default delay:",
     "Показывать обратный отсчёт": "Show the countdown",
+    "После снимка по таймеру открывать редактор":
+        "Open the editor after a timed capture",
+    "С галочкой кадр открывается в том же окне, что и обычный "
+    "снимок: можно порисовать и выбрать «копировать» или "
+    "«сохранить».\nБез галочки файл сохраняется сразу.":
+        "When ticked, the shot opens in the same window as a regular "
+        "capture: draw on it and choose “copy” or “save”.\n"
+        "When unticked, the file is saved straight away.",
     "Запускать вместе с Windows": "Start with Windows",
     "Куда сохранять скриншоты": "Where to save screenshots",
 

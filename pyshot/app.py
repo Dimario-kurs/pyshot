@@ -74,6 +74,7 @@ class PyShotApp(QObject):
         set_language(self.cfg["language"])
         self.overlay: Overlay | None = None
         self.countdown: Countdown | None = None
+        self.settings_dialog: SettingsDialog | None = None
         self.last_saved: Path | None = None
 
         self.icon = tray_icon()
@@ -182,8 +183,10 @@ class PyShotApp(QObject):
             label(tr("Снимок по таймеру"), str(self.cfg["hotkey_delayed"])))
 
     def _on_tray_activated(self, reason) -> None:
+        # левый клик открывает настройки: съёмка — это горячие клавиши и
+        # правый клик по значку, иначе люди путаются
         if reason in (QSystemTrayIcon.Trigger, QSystemTrayIcon.DoubleClick):
-            self.capture_region()
+            self.open_settings()
 
     def _on_message_clicked(self) -> None:
         if self.last_saved and self.last_saved.exists():
@@ -228,6 +231,19 @@ class PyShotApp(QObject):
     # ------------------------------------------------------------------ #
     # съёмка
     # ------------------------------------------------------------------ #
+    def busy_with_dialog(self) -> bool:
+        """Пока открыто модальное окно, оно забирает весь ввод.
+
+        Оверлей в это время лёг бы поверх экрана и не реагировал ни на мышь,
+        ни на Esc — выглядело бы как зависание. Поэтому съёмку пропускаем.
+        """
+        modal = QApplication.activeModalWidget()
+        if modal is None:
+            return False
+        modal.raise_()
+        modal.activateWindow()
+        return True
+
     def window_rects(self, scale: float) -> list:
         """Окна в координатах оверлея — для подсветки под курсором."""
         origin = virtual_origin()
@@ -239,7 +255,7 @@ class PyShotApp(QObject):
         return rects
 
     def capture_region(self) -> None:
-        if self.overlay is not None:
+        if self.overlay is not None or self.busy_with_dialog():
             return
         image, geo, scale = grab_screens()
         windows = self.window_rects(scale)
@@ -251,14 +267,15 @@ class PyShotApp(QObject):
         overlay.start()
 
     def capture_fullscreen(self) -> None:
-        if self.overlay is not None:
+        if self.overlay is not None or self.busy_with_dialog():
             return
         image, _geo, _scale = grab_screens()
         self._save(image, False)
 
     def capture_delayed(self, seconds: int, mode: str = "region") -> None:
         """mode: last — рамка с таймером, region — выбор, full — весь экран."""
-        if self.overlay is not None or self.countdown is not None:
+        if (self.overlay is not None or self.countdown is not None
+                or self.busy_with_dialog()):
             return
 
         if mode == "last":
@@ -367,13 +384,26 @@ class PyShotApp(QObject):
         self.cfg.save()
 
     def capture_last_region(self) -> None:
-        """Снимает запомненную область молча: ни оверлея, ни мыши."""
+        """Кадр по таймеру: открываем редактор либо сохраняем сразу."""
         rect = self.last_region()
         if rect is None:
             self.capture_region()
             return
 
         image, geo, scale = grab_screens()
+
+        if self.cfg["timer_opens_editor"]:
+            # тот же редактор, что и у Ctrl+4: рисование, копировать, сохранить
+            overlay = Overlay(image, geo, scale, self.cfg,
+                              windows=self.window_rects(scale))
+            overlay.saveRequested.connect(self._save)
+            overlay.copyRequested.connect(self._copy)
+            overlay.closed.connect(self._overlay_closed)
+            self.overlay = overlay
+            overlay.set_selection_from_desktop(rect)
+            overlay.start()
+            return
+
         crop = QRect(int(round((rect.x() - geo.x()) * scale)),
                      int(round((rect.y() - geo.y()) * scale)),
                      int(round(rect.width() * scale)),
@@ -414,9 +444,22 @@ class PyShotApp(QObject):
 
     # ------------------------------------------------------------------ #
     def open_settings(self) -> None:
+        if self.settings_dialog is not None:      # уже открыто — просто поднять
+            self.settings_dialog.raise_()
+            self.settings_dialog.activateWindow()
+            return
+        if self.overlay is not None:              # идёт съёмка — не мешаем
+            return
+
         dialog = SettingsDialog(self.cfg)
         dialog.setWindowIcon(self.icon)
-        if dialog.exec():
+        self.settings_dialog = dialog
+        try:
+            accepted = dialog.exec()
+        finally:
+            self.settings_dialog = None
+
+        if accepted:
             set_language(self.cfg["language"])
             self._build_menu()          # меню перерисовываем на новом языке
             self.reload_hotkeys(notify_errors=True)

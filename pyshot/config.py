@@ -56,6 +56,8 @@ DEFAULTS = {
     # съёмка по таймеру
     "delay_seconds": 3,
     "show_countdown": True,
+    # после снимка по таймеру открывать редактор, а не сохранять молча
+    "timer_opens_editor": True,
     # инструменты рисования
     "pen_color": "#ff3b30",
     "pen_width": 3,

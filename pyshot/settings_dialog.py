@@ -200,6 +200,15 @@ class SettingsDialog(QDialog):
         self.show_countdown.setChecked(bool(self.cfg["show_countdown"]))
         form.addRow("", self.show_countdown)
 
+        self.timer_editor = QCheckBox(
+            tr("После снимка по таймеру открывать редактор"))
+        self.timer_editor.setChecked(bool(self.cfg["timer_opens_editor"]))
+        self.timer_editor.setToolTip(
+            tr("С галочкой кадр открывается в том же окне, что и обычный "
+               "снимок: можно порисовать и выбрать «копировать» или "
+               "«сохранить».\nБез галочки файл сохраняется сразу."))
+        form.addRow("", self.timer_editor)
+
         self.autostart = QCheckBox(tr("Запускать вместе с Windows"))
         self.autostart.setChecked(bool(self.cfg["autostart"]))
         form.addRow("", self.autostart)
@@ -230,6 +239,7 @@ class SettingsDialog(QDialog):
             "hotkey_delayed": self.hk_delay.text().strip(),
             "delay_seconds": self.delay.value(),
             "show_countdown": self.show_countdown.isChecked(),
+            "timer_opens_editor": self.timer_editor.isChecked(),
             "autostart": self.autostart.isChecked(),
         })
         self.cfg.save()

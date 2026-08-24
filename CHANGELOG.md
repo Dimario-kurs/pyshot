@@ -4,6 +4,26 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] — 2026-08-20
+
+### Fixed
+
+- **The screen could lock up.** Pressing a capture hotkey while the modal
+  settings window was open put the overlay on top of everything while the
+  dialog kept all input, so neither the mouse nor <kbd>Esc</kbd> reached it.
+  Captures are now skipped while a modal window is open, and the window that
+  blocks them is brought to the front instead.
+
+### Changed
+
+- **Left-clicking the tray icon opens Settings** instead of starting a capture.
+  Capturing stays on the hotkeys and the right-click menu — the old behaviour
+  surprised people who just wanted to open the program.
+- **A timed capture now opens the editor** — the same window as a regular
+  capture, with the drawing tools and the copy / save / close buttons, instead
+  of silently writing a file. The old behaviour is one checkbox away:
+  *Settings → Timer and startup → «After a timed capture open the editor»*.
+
 ## [1.0.0] — 2026-08-20
 
 First public release.
@@ -48,4 +68,5 @@ First public release.
   without elevation. `tools/uninstall.ps1` removes everything except the user's
   settings and screenshots.
 
+[1.0.1]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.1
 [1.0.0]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.0

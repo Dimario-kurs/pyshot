@@ -204,16 +204,64 @@ pyshot._remember_region()
 pyshot.overlay = None
 check("область запомнена", pyshot.last_region() == QRect(60, 50, 420, 260))
 
+# режим «сохранять сразу»
+pyshot.cfg["timer_opens_editor"] = False
 pyshot.capture_last_region()
 saved = sorted((TMP / "timer").glob("*.png"))
 check("снимок по таймеру сохранён", len(saved) == 1)
 check("оверлей не открывался", pyshot.overlay is None)
 
+# режим «открывать редактор»: рисование и выбор копировать/сохранить
+pyshot.cfg["timer_opens_editor"] = True
+pyshot.capture_last_region()
+editor = pyshot.overlay
+check("редактор после таймера открылся", editor is not None)
+if editor is not None:
+    check("рамка подставлена",
+          editor.has_selection() and editor.tool_panel is not None)
+    check("панель действий с копированием",
+          [a for a, _ in editor.action_panel.ACTIONS] == ["copy", "save",
+                                                          "close"])
+    check("файл ещё не сохранён",
+          len(sorted((TMP / "timer").glob("*.png"))) == 1)
+    editor.close()
+    app.processEvents()
+
 pyshot.cfg["last_region"] = [99000, 99000, 300, 200]
+pyshot.cfg["timer_opens_editor"] = False
 pyshot.capture_last_region()
 check("область вне экрана — просит выбрать заново", pyshot.overlay is not None)
 if pyshot.overlay is not None:
     pyshot.overlay.close()
+    app.processEvents()
+
+# --------------------------------------------------------------------------
+print("\nзащита от зависания при открытом окне")
+from PySide6.QtWidgets import QDialog  # noqa: E402
+
+modal = QDialog()
+modal.setModal(True)
+modal.open()                      # показываем, не блокируя тест
+app.processEvents()
+check("модальное окно замечено", pyshot.busy_with_dialog())
+pyshot.overlay = None
+pyshot.capture_region()
+check("съёмка области не запускается", pyshot.overlay is None)
+pyshot.capture_delayed(3, "last")
+check("таймер не запускается", pyshot.overlay is None
+      and pyshot.countdown is None)
+modal.close()
+app.processEvents()
+check("после закрытия окна съёмка снова разрешена",
+      not pyshot.busy_with_dialog())
+
+# клик по значку в трее открывает настройки, а не съёмку
+opened = []
+pyshot.open_settings = lambda: opened.append(True)
+from PySide6.QtWidgets import QSystemTrayIcon  # noqa: E402
+pyshot._on_tray_activated(QSystemTrayIcon.ActivationReason.Trigger)
+check("левый клик по значку открывает настройки", opened == [True])
+
 pyshot.hotkeys.unregister_all()
 
 # --------------------------------------------------------------------------

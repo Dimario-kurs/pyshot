@@ -121,7 +121,8 @@ without a console window.
 
 ## Quick start
 
-1. Start PyShot. A blue frame icon appears in the notification area.
+1. Start PyShot. A blue tile icon appears in the notification area.
+   Left-click it for Settings, right-click for the full menu.
 2. Press <kbd>Ctrl</kbd>+<kbd>4</kbd>. The screen dims and freezes.
 3. Click a window, or drag a rectangle.
 4. Draw on it if you want, then press <kbd>Enter</kbd> to save or
@@ -179,6 +180,10 @@ the mouse still. When the countdown ends, that rectangle is saved.
 Set the timer to **off** and *Capture* fires immediately. The frame is stored in
 the settings file and survives restarts.
 
+When the countdown ends the shot opens in the **normal editor**: draw on it and
+choose copy, save or close. Prefer the file to be written straight away? Untick
+*Settings → Timer and startup → “Open the editor after a timed capture”*.
+
 ## Editor
 
 The toolbar mirrors Lightshot: pencil, line, arrow, rectangle, marker, text, a
@@ -200,7 +205,7 @@ Tray → **Settings…**
 | Language | Russian / English, applied to the tray menu immediately |
 | Saving | folder, PNG/JPEG + quality, filename template, clipboard copy, open folder, notifications, colour profile |
 | Hotkeys | three fields that record the combination you press; <kbd>Backspace</kbd> clears one |
-| Timer and startup | default delay, countdown visibility, "Start with Windows" |
+| Timer and startup | default delay, countdown visibility, editor after a timed capture, "Start with Windows" |
 
 Settings live in `%APPDATA%\PyShot\config.json` — plain JSON, safe to edit by hand
 or to delete for a clean start.
