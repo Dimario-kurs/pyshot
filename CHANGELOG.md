@@ -4,6 +4,17 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.2] — 2026-08-24
+
+### Changed
+
+- **Reworked the application icon.** Same identity — a blue tile, white capture
+  corners and a red lens dot — but redrawn: a softer squircle, a diagonal
+  gradient with a light sheen along the top, thinner corner strokes with more
+  breathing room, and a smaller dot with a soft glow. The sheen, the inner
+  outline and the glow are skipped below 32 px so the tray icon stays crisp at
+  16 px. The same drawing feeds the tray, the window icons and the `.ico`.
+
 ## [1.0.1] — 2026-08-20
 
 ### Fixed
@@ -68,5 +79,6 @@ First public release.
   without elevation. `tools/uninstall.ps1` removes everything except the user's
   settings and screenshots.
 
+[1.0.2]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.2
 [1.0.1]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.1
 [1.0.0]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.0

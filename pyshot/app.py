@@ -6,8 +6,8 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, QPointF, QRect, QRectF, Qt, QTimer
 from PySide6.QtGui import (QAction, QBrush, QColor, QGuiApplication, QIcon,
-                           QImage, QLinearGradient, QPainter, QPen,
-                           QPixmap)
+                           QImage, QLinearGradient, QPainter, QPainterPath,
+                           QPen, QPixmap, QRadialGradient)
 from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon, QWidget
 
 from . import storage
@@ -22,9 +22,11 @@ from .winlist import virtual_origin, visible_windows
 
 
 def tray_icon() -> QIcon:
-    """Иконка приложения: синяя плитка с уголками кадра и красной точкой.
+    """Иконка приложения: синяя плитка, уголки кадра и красная точка.
 
-    Одна и та же картинка используется в трее, в заголовках окон и в exe.
+    Одна и та же картинка идёт в трей, в заголовки окон и в exe. Блик и
+    свечение включаются только на крупных размерах — на 16 пикселях они
+    превратились бы в грязь.
     """
     icon = QIcon()
     for size in (16, 20, 24, 32, 48, 64, 128, 256):
@@ -32,35 +34,64 @@ def tray_icon() -> QIcon:
         pm.fill(Qt.transparent)
         p = QPainter(pm)
         p.setRenderHint(QPainter.Antialiasing, True)
-        s = size / 64.0
 
-        # плитка
-        gradient = QLinearGradient(0, 0, size, size)
-        gradient.setColorAt(0, QColor("#5b9dff"))
-        gradient.setColorAt(1, QColor("#1b52c9"))
+        # -- плитка --------------------------------------------------------
+        margin = size * 0.023
+        rect = QRectF(margin, margin, size - 2 * margin, size - 2 * margin)
+        radius = size * 0.22
+        gradient = QLinearGradient(rect.topLeft(), rect.bottomRight())
+        gradient.setColorAt(0.0, QColor("#63a4ff"))
+        gradient.setColorAt(1.0, QColor("#1746b8"))
         p.setPen(Qt.NoPen)
         p.setBrush(QBrush(gradient))
-        radius = 13 * s if size >= 32 else 3 * s
-        p.drawRoundedRect(QRectF(1.5 * s, 1.5 * s, size - 3 * s, size - 3 * s),
-                          radius, radius)
+        p.drawRoundedRect(rect, radius, radius)
 
-        # уголки кадра
-        pen = QPen(QColor("#ffffff"), max(2.0, 5.5 * s))
+        if size >= 32:
+            # блик по верхней половине и тонкая внутренняя окантовка
+            clip = QPainterPath()
+            clip.addRoundedRect(rect, radius, radius)
+            p.save()
+            p.setClipPath(clip)
+            shine = QLinearGradient(rect.topLeft(),
+                                    QPointF(rect.left(), rect.center().y()))
+            shine.setColorAt(0.0, QColor(255, 255, 255, 60))
+            shine.setColorAt(1.0, QColor(255, 255, 255, 0))
+            p.setBrush(QBrush(shine))
+            p.drawRoundedRect(rect, radius, radius)
+            p.restore()
+
+            p.setBrush(Qt.NoBrush)
+            p.setPen(QPen(QColor(255, 255, 255, 70), max(1.0, size * 0.019)))
+            inner = rect.adjusted(size * 0.01, size * 0.01,
+                                  -size * 0.01, -size * 0.01)
+            p.drawRoundedRect(inner, radius, radius)
+
+        # -- уголки кадра --------------------------------------------------
+        pen = QPen(QColor("#ffffff"), max(1.8, size * 0.075))
         pen.setCapStyle(Qt.FlatCap)
         p.setPen(pen)
-        margin = max(3.0, 15 * s)
-        arm = max(3.5, 12 * s)
-        near, far = margin, size - margin
-        for x, y, dx, dy in ((near, near, 1, 1), (far, near, -1, 1),
-                             (near, far, 1, -1), (far, far, -1, -1)):
+        inset, arm = size * 0.155, size * 0.17
+        left, top = rect.left() + inset, rect.top() + inset
+        right, bottom = rect.right() - inset, rect.bottom() - inset
+        for x, y, dx, dy in ((left, top, 1, 1), (right, top, -1, 1),
+                             (left, bottom, 1, -1), (right, bottom, -1, -1)):
             p.drawLine(QPointF(x, y), QPointF(x + arm * dx, y))
             p.drawLine(QPointF(x, y), QPointF(x, y + arm * dy))
 
-        # точка объектива
+        # -- точка объектива ------------------------------------------------
+        centre = QPointF(size / 2, size / 2)
+        dot = max(1.8, size * 0.105)
+        if size >= 48:
+            glow = QRadialGradient(centre, dot * 1.9)
+            glow.setColorAt(0.0, QColor(255, 69, 58, 90))
+            glow.setColorAt(1.0, QColor(255, 69, 58, 0))
+            p.setPen(Qt.NoPen)
+            p.setBrush(QBrush(glow))
+            p.drawEllipse(centre, dot * 1.9, dot * 1.9)
         p.setPen(Qt.NoPen)
         p.setBrush(QBrush(QColor("#ff453a")))
-        dot = max(1.8, 7 * s)
-        p.drawEllipse(QPointF(size / 2, size / 2), dot, dot)
+        p.drawEllipse(centre, dot, dot)
+
         p.end()
         icon.addPixmap(pm)
     return icon
