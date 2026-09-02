@@ -4,6 +4,16 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- **The installer no longer fails when run from the folder it installs into.**
+  Copying the executable onto itself aborted the script before it could write
+  the uninstall entry, leaving the app registered under its previous version.
+  Both copies are now skipped when source and destination are the same file.
+  The script lost its accidental double line spacing at the same time.
+
 ## [1.0.2] — 2026-08-24
 
 ### Changed
