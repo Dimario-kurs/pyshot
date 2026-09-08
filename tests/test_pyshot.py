@@ -7,8 +7,10 @@
 
 from __future__ import annotations
 
+import atexit
 import os
 import re
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -27,6 +29,12 @@ sys.path.insert(0, str(ROOT))
 
 TMP = Path(tempfile.mkdtemp(prefix="pyshot-tests-"))
 os.environ["APPDATA"] = str(TMP)            # конфиг пишется во временную папку
+
+
+@atexit.register
+def _cleanup_temp() -> None:
+    """Убираем за собой: иначе папка временных файлов копит мусор."""
+    shutil.rmtree(TMP, ignore_errors=True)
 
 from PySide6.QtCore import QPointF, QRect, QRectF, Qt  # noqa: E402
 from PySide6.QtGui import QColor, QFont, QImage, QPainter  # noqa: E402
