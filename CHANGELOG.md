@@ -6,13 +6,7 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [1.1.6] — 2026-09-09
-
-### Changed
-
-- The «Translating…» notice lost its second line: the running dots already
-  show that the program is working, and the explanation only added noise to
-  the middle of the shot.
+## [1.1.7] — 2026-09-09
 
 ### Fixed
 
@@ -22,6 +16,14 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
   elevated window closed before anyone could read it. It now waits for the
   processes to end and retries the copy for about eight seconds, saying so if
   it still cannot.
+
+## [1.1.6] — 2026-09-09
+
+### Changed
+
+- The «Translating…» notice lost its second line: the running dots already
+  show that the program is working, and the explanation only added noise to
+  the middle of the shot.
 
 ## [1.1.5] — 2026-09-09
 
@@ -229,13 +231,14 @@ First public release.
   without elevation. `tools/uninstall.ps1` removes everything except the user's
   settings and screenshots.
 
+[1.1.7]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.7
 [1.1.6]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.6
 [1.1.5]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.5
 [1.1.4]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.4
-[1.0.2]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.2
-[1.0.1]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.1
 [1.1.3]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.3
 [1.1.2]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.2
 [1.1.1]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.1
 [1.1.0]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.0
+[1.0.2]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.2
+[1.0.1]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.1
 [1.0.0]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.0
