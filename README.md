@@ -200,8 +200,6 @@ final image at full device resolution, not at the on-screen size.
 
 ## Translating the text on a shot
 
-<img src="docs/translate.png" alt="Translation drawn over the shot" width="820">
-
 The **АЯ** button in the right panel, under the undo arrow, or
 <kbd>Ctrl</kbd>+<kbd>T</kbd>. The first press translates, the second removes
 the translation and brings the original frame back. The translation is part of

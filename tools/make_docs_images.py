@@ -29,8 +29,6 @@ from pyshot.i18n import set_language  # noqa: E402
 from pyshot.overlay import DRAG_NONE, Overlay  # noqa: E402
 from pyshot.settings_dialog import SettingsDialog  # noqa: E402
 from pyshot.shapes import Shape  # noqa: E402
-from pyshot.translate import build_units, recognize  # noqa: E402
-from pyshot.translation_layer import build_layer  # noqa: E402
 
 DOCS = ROOT / "docs"
 W, H = 1100, 700
@@ -106,58 +104,7 @@ def main() -> None:
     timer.show()
     shots.append((timer, "timer.png"))
 
-    # 4. перевод текста на снимке
-    english = QImage(W, H, QImage.Format_RGB32)
-    p = QPainter(english)
-    p.fillRect(0, 0, W, H, QColor("#101826"))
-    p.fillRect(QRectF(70, 90, 960, 240), QColor("#eef1f6"))
-    p.fillRect(QRectF(70, 90, 960, 5), QColor("#4285f4"))
-    font = QFont("Segoe UI")
-    font.setPointSize(13)
-    p.setFont(font)
-    p.setPen(QColor("#202124"))
-    sentences = [
-        "Today is my birthday.",
-        "Tomorrow I need to go to the store and buy antifreeze.",
-        "The day after tomorrow I have to go to training,",
-        "and after lunch I will go to the garage.",
-    ]
-    for index, sentence in enumerate(sentences):
-        p.drawText(QRectF(100, 120 + index * 44, 900, 40),
-                   Qt.AlignVCenter | Qt.AlignLeft, sentence)
-    p.setPen(QColor("#54637a"))
-    p.drawText(QRectF(0, H - 60, W, 40), Qt.AlignCenter,
-               "демонстрационный фон")
-    p.end()
-
-    translated = Overlay(english, QRect(0, 0, W, H), 1.0, cfg)
-    translated.resize(W, H)
-    translated.selection = QRectF(70, 90, 960, 240)
-
-    # Координаты берём у настоящего распознавания — оно работает офлайн.
-    # А сам перевод задан заранее, чтобы генератор картинок не ходил в сеть.
-    russian = [
-        "Сегодня мой день рождения.",
-        "Завтра мне нужно сходить в магазин и купить антифриз.",
-        "Послезавтра мне нужно идти на тренировку,",
-        "а после обеда я поеду в гараж.",
-    ]
-    crop = translated.selection_image()
-    found, _ = recognize(crop, "en")
-    ready = build_units(found, "ru")
-    if len(ready) == 1:                      # строки склеились в один абзац
-        ready[0].translation = " ".join(russian)
-    else:
-        for block, text in zip(ready, russian):
-            block.translation = text
-    translated.translation = build_layer(crop, ready, 1.0,
-                                         translated.selection.topLeft())
-    translated._show_panels()
-    translated.tool_panel.set_translate_state(True)
-    translated.show()
-    shots.append((translated, "translate.png"))
-
-    # 5. настройки на двух языках
+    # 4. настройки на двух языках
     # в документацию не должны попадать реальные пути и имя пользователя
     demo = {
         "save_dir": r"C:\Users\User\Desktop\Скриншоты",
