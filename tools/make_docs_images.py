@@ -29,7 +29,7 @@ from pyshot.i18n import set_language  # noqa: E402
 from pyshot.overlay import DRAG_NONE, Overlay  # noqa: E402
 from pyshot.settings_dialog import SettingsDialog  # noqa: E402
 from pyshot.shapes import Shape  # noqa: E402
-from pyshot.translate import group_lines, recognize  # noqa: E402
+from pyshot.translate import build_units, recognize  # noqa: E402
 from pyshot.translation_layer import build_layer  # noqa: E402
 
 DOCS = ROOT / "docs"
@@ -144,7 +144,7 @@ def main() -> None:
     ]
     crop = translated.selection_image()
     found, _ = recognize(crop, "en")
-    ready = group_lines(found)
+    ready = build_units(found, "ru")
     if len(ready) == 1:                      # строки склеились в один абзац
         ready[0].translation = " ".join(russian)
     else:
