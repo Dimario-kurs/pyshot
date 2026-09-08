@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from PySide6.QtCore import (QObject, QPoint, QPointF, QRect, QRectF, QRunnable,
                             QSize, Qt, QThreadPool, QTimer, Signal)
-from PySide6.QtGui import (QColor, QFont, QFontMetricsF, QGuiApplication,
-                           QImage, QPainter, QPen)
+from PySide6.QtGui import (QColor, QFont, QGuiApplication, QImage,
+                           QPainter, QPen)
 from PySide6.QtWidgets import QMessageBox, QTextEdit, QWidget
 
 from . import shapes as S
@@ -222,8 +222,7 @@ class Overlay(QWidget):
 
             if self._translating:
                 dots = "." * (1 + self._busy_phase % 3)
-                self._draw_status(painter, rect, tr("Перевожу") + dots,
-                                  tr("подождите — надпись исчезнет сама"))
+                self._draw_status(painter, rect, tr("Перевожу") + dots)
 
             self._draw_frame(painter, rect)
             self._draw_size_badge(painter, rect)
@@ -300,8 +299,7 @@ class Overlay(QWidget):
         self._busy_phase += 1
         self.update()
 
-    def _draw_status(self, painter: QPainter, rect: QRectF, text: str,
-                     note: str = "") -> None:
+    def _draw_status(self, painter: QPainter, rect: QRectF, text: str) -> None:
         """Надпись посреди выделения: идёт перевод или ошибка.
 
         Кегль привязан к размеру кадра — на снимке во весь экран надпись
@@ -314,38 +312,17 @@ class Overlay(QWidget):
         font.setBold(True)
         painter.setFont(font)
         metrics = painter.fontMetrics()
-        width = metrics.horizontalAdvance(text)
-        height = metrics.height()
-
-        small = QFont(font)
-        small.setPointSizeF(max(9.0, size * 0.62))
-        small.setBold(False)
-        if note:
-            note_metrics = QFontMetricsF(small)
-            width = max(width, note_metrics.horizontalAdvance(note))
-            height += note_metrics.height() + size * 0.3
 
         pad = size * 1.2
-        box = QRectF(rect.center().x() - (width + pad * 2) / 2,
-                     rect.center().y() - (height + pad * 1.3) / 2,
-                     width + pad * 2, height + pad * 1.3)
+        width = metrics.horizontalAdvance(text) + pad * 2
+        height = metrics.height() + pad * 1.1
+        box = QRectF(rect.center().x() - width / 2,
+                     rect.center().y() - height / 2, width, height)
         painter.setPen(QPen(QColor(255, 255, 255, 70), 1))
         painter.setBrush(QColor(20, 20, 20, 232))
         painter.drawRoundedRect(box, size * 0.5, size * 0.5)
         painter.setPen(QPen(QColor("#f2f2f2")))
-
-        if not note:
-            painter.drawText(box, Qt.AlignCenter, text)
-            return
-
-        upper = QRectF(box.left(), box.top() + pad * 0.6, box.width(),
-                       metrics.height())
-        painter.drawText(upper, Qt.AlignCenter, text)
-        painter.setFont(small)
-        painter.setPen(QPen(QColor(255, 255, 255, 185)))
-        lower = QRectF(box.left(), upper.bottom() + size * 0.2, box.width(),
-                       box.bottom() - upper.bottom())
-        painter.drawText(lower, Qt.AlignHCenter | Qt.AlignTop, note)
+        painter.drawText(box, Qt.AlignCenter, text)
 
     def _draw_crosshair(self, painter: QPainter) -> None:
         if self._cursor_pos.x() < 0:

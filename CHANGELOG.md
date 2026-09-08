@@ -6,6 +6,14 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.6] — 2026-09-09
+
+### Changed
+
+- The «Translating…» notice lost its second line: the running dots already
+  show that the program is working, and the explanation only added noise to
+  the middle of the shot.
+
 ## [1.1.5] — 2026-09-09
 
 ### Changed
@@ -20,8 +28,7 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
   frame stays at least twice its size, between 0.45× and 3×.
 - **It is now obvious that translation has started.** The «Translating» notice
   in the middle of the selection is larger, scaled to the size of the frame,
-  carries a «please wait» line and animates its dots — so a slow translation
-  no longer looks like a freeze. It disappears by itself once the text is
+  and animates its dots — so a slow translation no longer looks like a freeze. It disappears by itself once the text is
   ready.
 
 ## [1.1.4] — 2026-09-09
@@ -213,6 +220,7 @@ First public release.
   without elevation. `tools/uninstall.ps1` removes everything except the user's
   settings and screenshots.
 
+[1.1.6]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.6
 [1.1.5]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.5
 [1.1.4]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.4
 [1.0.2]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.2
