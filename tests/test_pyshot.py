@@ -254,10 +254,14 @@ app.processEvents()
 check("модальное окно замечено", pyshot.busy_with_dialog())
 pyshot.overlay = None
 pyshot.capture_region()
-check("съёмка области не запускается", pyshot.overlay is None)
-pyshot.capture_delayed(3, "last")
-check("таймер не запускается", pyshot.overlay is None
-      and pyshot.countdown is None)
+check("съёмка при открытом окне работает", pyshot.overlay is not None)
+check("оверлей перехватил ввод у окна",
+      pyshot.overlay is not None
+      and pyshot.overlay.windowModality() == Qt.ApplicationModal)
+if pyshot.overlay is not None:
+    pyshot.overlay.close()
+    app.processEvents()
+pyshot.overlay = None
 modal.close()
 app.processEvents()
 check("после закрытия окна съёмка снова разрешена",

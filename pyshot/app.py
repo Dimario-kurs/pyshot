@@ -263,17 +263,20 @@ class PyShotApp(QObject):
     # съёмка
     # ------------------------------------------------------------------ #
     def busy_with_dialog(self) -> bool:
-        """Пока открыто модальное окно, оно забирает весь ввод.
+        """Открыто ли сейчас модальное окно программы (например, настройки)."""
+        return QApplication.activeModalWidget() is not None
 
-        Оверлей в это время лёг бы поверх экрана и не реагировал ни на мышь,
-        ни на Esc — выглядело бы как зависание. Поэтому съёмку пропускаем.
+    @staticmethod
+    def _grab_input(overlay) -> None:
+        """Даём оверлею перехватить ввод у открытого модального окна.
+
+        Без этого оверлей лёг бы поверх настроек, но весь ввод доставался
+        бы им — экран выглядел бы зависшим. Сделав оверлей модальным,
+        получаем обратное: он забирает ввод себе, а окно настроек остаётся
+        видимым и попадает в кадр. Так программу можно снять саму.
         """
-        modal = QApplication.activeModalWidget()
-        if modal is None:
-            return False
-        modal.raise_()
-        modal.activateWindow()
-        return True
+        if QApplication.activeModalWidget() is not None:
+            overlay.setWindowModality(Qt.ApplicationModal)
 
     def window_rects(self, scale: float) -> list:
         """Окна в координатах оверлея — для подсветки под курсором."""
@@ -286,11 +289,12 @@ class PyShotApp(QObject):
         return rects
 
     def capture_region(self) -> None:
-        if self.overlay is not None or self.busy_with_dialog():
+        if self.overlay is not None:
             return
         image, geo, scale = grab_screens()
         windows = self.window_rects(scale)
         overlay = Overlay(image, geo, scale, self.cfg, windows=windows)
+        self._grab_input(overlay)
         overlay.saveRequested.connect(self._save)
         overlay.copyRequested.connect(self._copy)
         overlay.closed.connect(self._overlay_closed)
@@ -298,15 +302,14 @@ class PyShotApp(QObject):
         overlay.start()
 
     def capture_fullscreen(self) -> None:
-        if self.overlay is not None or self.busy_with_dialog():
+        if self.overlay is not None:
             return
         image, _geo, _scale = grab_screens()
         self._save(image, False)
 
     def capture_delayed(self, seconds: int, mode: str = "region") -> None:
         """mode: last — рамка с таймером, region — выбор, full — весь экран."""
-        if (self.overlay is not None or self.countdown is not None
-                or self.busy_with_dialog()):
+        if self.overlay is not None or self.countdown is not None:
             return
 
         if mode == "last":
@@ -358,6 +361,7 @@ class PyShotApp(QObject):
         image, geo, scale = grab_screens()
         overlay = Overlay(image, geo, scale, self.cfg, mode="timer",
                           delay=seconds, windows=self.window_rects(scale))
+        self._grab_input(overlay)
         overlay.shootRequested.connect(self._start_timer_shot)
         overlay.closed.connect(self._overlay_closed)
         self.overlay = overlay

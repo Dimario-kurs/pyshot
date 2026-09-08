@@ -14,6 +14,19 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
   Both copies are now skipped when source and destination are the same file.
   The script lost its accidental double line spacing at the same time.
 
+## [1.1.2] — 2026-09-09
+
+### Changed
+
+- **The program can now capture its own windows.** Since 1.0.1 capturing was
+  refused while a modal window such as Settings was open: the overlay would
+  have covered the screen while the dialog kept all the input, which looked
+  like a freeze. Instead of refusing, the overlay now takes the input over by
+  becoming modal itself — the dialog stays visible and lands in the shot,
+  while the mouse and <kbd>Esc</kbd> go to the overlay.
+- Full-screen capture is no longer blocked by open dialogs at all: it draws no
+  overlay, so there was nothing to protect against.
+
 ## [1.1.1] — 2026-09-09
 
 ### Fixed
@@ -124,6 +137,7 @@ First public release.
 
 [1.0.2]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.2
 [1.0.1]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.1
+[1.1.2]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.2
 [1.1.1]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.1
 [1.1.0]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.0
 [1.0.0]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.0
