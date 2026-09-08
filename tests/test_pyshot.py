@@ -306,6 +306,58 @@ check("соседняя колонка не приклеивается",
 
 check("пустой список не ломает разбор", tr_engine.group_lines([]) == [])
 
+# --- участки: переводим вставки, а не строку целиком ----------------------
+def worded(words, y=40, h=18):
+    """Строка из слов с рамками: (слово, x, ширина)."""
+    boxes = [(QRectF(x, y, w, h), word) for word, x, w in words]
+    rect = QRectF(boxes[0][0])
+    for box, _ in boxes[1:]:
+        rect = rect.united(box)
+    return tr_engine.Line(text=" ".join(w for w, _, _ in words),
+                          rect=rect, words=boxes)
+
+mixed = worded([("Прикреплённый", 30, 120), ("скриншот", 160, 80),
+                ("Add", 250, 30), ("files", 285, 40),
+                ("or", 330, 20), ("photos", 355, 55)])
+runs = tr_engine.split_runs(mixed, "ru", tr_engine.INLINE_MINIMUM)
+check("в смешанной строке найден один участок", len(runs) == 1,
+      f"участков: {len(runs)}")
+check("участок — только английские слова",
+      runs and runs[0].text == "Add files or photos",
+      runs[0].text if runs else "пусто")
+check("подложка не залезает на русские слова",
+      runs and runs[0].rect.left() >= 250 - 1,
+      f"левый край: {runs[0].rect.left() if runs else '-'}")
+
+short = worded([("Ветка", 30, 60), ("fork", 100, 40), ("7", 145, 12)])
+check("короткая вставка не переводится",
+      tr_engine.split_runs(short, "ru", tr_engine.INLINE_MINIMUM) == [])
+
+russian_only = worded([("Ссылки", 30, 70), ("и", 105, 12),
+                       ("шаблоны", 125, 80), ("выброшены", 210, 90)])
+check("в русской строке переводить нечего",
+      tr_engine.split_runs(russian_only, "ru", tr_engine.INLINE_MINIMUM) == [])
+
+two = worded([("Открыть", 30, 70), ("Settings", 110, 70),
+              ("и", 190, 12), ("нажать", 210, 60), ("Continue", 280, 70),
+              ("здесь", 360, 50)])
+check("несколько вставок в строке — несколько участков",
+      len(tr_engine.split_runs(two, "ru", tr_engine.INLINE_MINIMUM)) == 2)
+
+# строки целиком на чужом языке по-прежнему склеиваются в абзац
+units = tr_engine.build_units(
+    [worded([("Today", 30, 60), ("is", 95, 20), ("my", 120, 25),
+             ("birthday", 150, 70)], y=40),
+     worded([("Tomorrow", 30, 90), ("I", 125, 8), ("go", 140, 25),
+             ("shopping", 170, 80)], y=70)], "ru")
+check("сплошной английский остаётся абзацем", len(units) == 1,
+      f"единиц: {len(units)}")
+check("абзац не помечен как вставка", not units[0].inline)
+
+mixed_units = tr_engine.build_units([mixed], "ru")
+check("вставка помечена как вставка",
+      len(mixed_units) == 1 and mixed_units[0].inline)
+
 # --- смешанный русско-английский текст ------------------------------------
 check("слово из букв-двойников считается латинским",
       tr_engine._mistaken_latin("ту"))

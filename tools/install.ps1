@@ -23,7 +23,7 @@ $ErrorActionPreference = 'Stop'
 
 $AppName   = 'PyShot'
 $AppTitle  = 'PyShot — скриншоты'
-$Version   = '1.1.3'
+$Version   = '1.1.4'
 $Publisher = 'Dimario-kurs'
 
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path

@@ -6,7 +6,40 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.4] — 2026-09-09
+
+### Changed
+
+- **Translation now covers foreign fragments, not whole paragraphs.** On a page
+  mixing Russian and English the plate used to be drawn over the entire
+  paragraph, so its Russian half was replaced by a machine translation of
+  itself: «ssylki i shablony `%Y-%m-%d` iz podschёta vybrosheny» came back
+  mangled. Recognised words are now split into runs of consecutive foreign
+  words, each run gets its own plate covering exactly its bounding box, and
+  native words keep their original pixels.
+- **Short inserts are left alone.** A fragment inside a native line has to hold
+  at least six foreign letters, so `fork 7`, `Max` and `Opus 5` stay as they
+  are; a line that is entirely foreign still translates from three letters up,
+  because a standalone button label is worth translating.
+- **File and project names are not translated.** A token with an underscore,
+  an inner capital, an inner dot or a digit — `TractPart_Project`,
+  `config.json`, `v1.1.3` — ends the run instead of joining it, so the name
+  stays readable and the words on either side become separate fragments.
+
 ### Fixed
+
+- **Separate labels are no longer glued into one paragraph.** Lines were merged
+  when the gap between them was under 1.6 line heights, which swallowed whole
+  menus; inside a real paragraph the gap is about half a line height, and that
+  is now the limit.
+- **A plate can no longer grow over the neighbouring word.** When the Russian
+  translation is longer than the original, the plate is widened — but a
+  fragment inside a line is only allowed to grow up to the next native word,
+  and its height by 70 % at most.
+- **The font is no longer needlessly small.** Recognised boxes fit the letters
+  themselves, without room for ascenders and descenders, and the text was
+  shrunk to that height; the plate now allows a fifth of the line height in
+  air, and fragments are no longer forced to share a size with full lines.
 
 - **The installer no longer fails when run from the folder it installs into.**
   Copying the executable onto itself aborted the script before it could write
@@ -162,6 +195,7 @@ First public release.
   without elevation. `tools/uninstall.ps1` removes everything except the user's
   settings and screenshots.
 
+[1.1.4]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.4
 [1.0.2]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.2
 [1.0.1]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.1
 [1.1.3]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.3

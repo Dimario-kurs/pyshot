@@ -90,6 +90,10 @@ REQUEST_TIMEOUT = 12
 CHUNK_LIMIT = 1400
 # меньше этого числа чужих букв текст считаем своим
 MIN_FOREIGN_LETTERS = 6
+# отдельная строка целиком на чужом языке: хватает короткой подписи
+WHOLE_LINE_MINIMUM = 3
+# вставка внутри своей строки: короткие «fork 7», «Max», «Opus 5» не трогаем
+INLINE_MINIMUM = 6
 # какую долю букв должен занимать чужой алфавит
 FOREIGN_SHARE = 0.35
 
@@ -107,6 +111,8 @@ class Line:
     """Строка, найденная распознавателем."""
     text: str
     rect: QRectF
+    words: list = field(default_factory=list)   # [(рамка, слово)] — для участков
+    room: float = -1.0                          # просвет справа до соседнего слова
 
 
 @dataclass
@@ -114,6 +120,8 @@ class Block:
     """Абзац: несколько строк подряд, переводится целиком."""
     lines: list = field(default_factory=list)
     translation: str = ""
+    inline: bool = False        # вставка внутри чужой строки, а не целый абзац
+    room: float = -1.0          # свободное место справа в пикселях (-1 — не знаем)
 
     @property
     def text(self) -> str:
@@ -346,12 +354,15 @@ def recognize(image: QImage, language: str = "auto") -> tuple[list, str]:
             continue
         rect = None
         pieces = []
+        boxes = []
         for word in words:
             box = word.bounding_rect
             piece = QRectF(box.x, box.y, box.width, box.height)
             rect = piece if rect is None else rect.united(piece)
-            pieces.append(fixes.get((round(box.x), round(box.y)), word.text))
-        lines.append(Line(text=" ".join(pieces), rect=rect))
+            fixed = fixes.get((round(box.x), round(box.y)), word.text)
+            pieces.append(fixed)
+            boxes.append((piece, fixed))
+        lines.append(Line(text=" ".join(pieces), rect=rect, words=boxes))
     return lines, best_tag
 
 
@@ -379,12 +390,130 @@ def group_lines(lines: list) -> list:
 
         # распознаватель отдаёт рамку по самим буквам, поэтому между строками
         # одного абзаца остаётся просвет порядка их высоты
-        same_block = (gap < height * 1.6 and overlap > narrower * 0.35)
+        # Просвет внутри абзаца — примерно половина высоты букв; у отдельных
+        # подписей и пунктов меню он заметно больше. Склеивать их нельзя:
+        # перевод превратит список кнопок в один абзац.
+        same_block = (gap < height * 0.9 and overlap > narrower * 0.35)
         if same_block:
             blocks[-1].lines.append(line)
         else:
             blocks.append(Block(lines=[line]))
     return blocks
+
+
+def _kind(word: str, target: str) -> str:
+    """Слово на своём языке, на чужом или ни на каком (цифры, знаки)."""
+    native_pattern = CYRILLIC if target.lower().startswith("ru") else LATIN
+    foreign_pattern = LATIN if target.lower().startswith("ru") else CYRILLIC
+    if native_pattern.search(word):
+        return "native"
+    if foreign_pattern.search(word):
+        return "foreign"
+    return "neutral"
+
+
+def _identifier(word: str) -> bool:
+    """Похоже на имя файла, проекта или версию, а не на слово.
+
+    «TractPart_Project», «config.json», «v1.1.3» переводить нечего: смысла
+    в переводе нет, а подложка закроет то, что человек как раз и ищет.
+    """
+    core = word.strip("()[]{}<>,.;:!?\"'«»")
+    if "_" in core:
+        return True
+    if re.search(r"[A-Za-z]\.[A-Za-z]", core):
+        return True
+    if re.search(r"[a-zа-я][A-ZА-Я]", core):
+        return True
+    return bool(re.search(r"[A-Za-z]", core) and re.search(r"\d", core))
+
+
+def _foreign_letters(words: list, target: str) -> int:
+    """Сколько чужих букв в участке — имена собственные не в счёт."""
+    pattern = LATIN if target.lower().startswith("ru") else CYRILLIC
+    return sum(len(pattern.findall(word)) for _, word in words
+               if not _identifier(word))
+
+
+def _make_line(words: list) -> Line:
+    """Собирает участок в строку: текст и общая рамка."""
+    rect = QRectF(words[0][0])
+    for box, _ in words[1:]:
+        rect = rect.united(box)
+    return Line(text=" ".join(word for _, word in words), rect=rect,
+                words=list(words))
+
+
+def split_runs(line: Line, target: str, minimum: int) -> list:
+    """Куски строки на чужом языке — подряд идущие слова.
+
+    Нужно, чтобы подложка с переводом не накрывала соседние русские слова:
+    в строке «ссылки и шаблоны %Y-%m-%d из подсчёта» переводить нечего,
+    а в «Прикреплённый скриншот Add files or photos» — только вторую часть.
+    """
+    words = line.words or [(line.rect, line.text)]
+    runs, current = [], []
+    for index, (box, word) in enumerate(words):
+        kind = _kind(word, target)
+        # имя файла или проекта обрывает участок: оно должно остаться
+        # на виду как есть, а слова по обе стороны от него — разные вставки
+        if kind == "foreign" and _identifier(word):
+            kind = "native"
+        if kind == "native":
+            if current:
+                runs.append((current, box.left()))
+                current = []
+            continue
+        if kind == "neutral" and not current:
+            continue                            # знаки в начале участка не нужны
+        current.append((box, word))
+    if current:
+        runs.append((current, -1.0))            # до конца строки никто не мешает
+
+    result = []
+    for run, stop in runs:
+        while run and _kind(run[-1][1], target) == "neutral":
+            run = run[:-1]                      # хвостовые знаки отбрасываем
+        if not run or _foreign_letters(run, target) < minimum:
+            continue
+        line = _make_line(run)
+        # запоминаем просвет до следующего своего слова: дальше подложке
+        # расти нельзя, иначе она закрасит соседа
+        line.room = max(0.0, stop - line.rect.right()) if stop >= 0 else -1.0
+        result.append(line)
+    return result
+
+
+def build_units(lines: list, target: str = "ru") -> list:
+    """Что именно переводим: целые абзацы или отдельные вставки.
+
+    Строку целиком на чужом языке переводим вместе с соседними такими же —
+    так сохраняется связность. А в строке, где чужие слова вкраплены между
+    своими, берём только эти вкрапления, и подложка ложится ровно на них.
+    """
+    units, buffer = [], []
+
+    def flush():
+        if buffer:
+            units.extend(group_lines(buffer))
+            buffer.clear()
+
+    for line in lines:
+        words = line.words or [(line.rect, line.text)]
+        has_native = any(_kind(word, target) == "native" for _, word in words)
+
+        if not has_native:
+            if _foreign_letters(words, target) >= WHOLE_LINE_MINIMUM:
+                buffer.append(line)
+            else:
+                flush()                         # «New», «Код» — слишком коротко
+            continue
+
+        flush()
+        units.extend(Block(lines=[run], inline=True, room=run.room)
+                     for run in split_runs(line, target, INLINE_MINIMUM))
+    flush()
+    return units
 
 
 # --------------------------------------------------------------------------
@@ -534,7 +663,7 @@ def translate_image(image: QImage, source: str = "auto", target: str = "ru",
                     provider: str = "google", key: str = "") -> list:
     """Распознаёт снимок и переводит найденные абзацы."""
     lines, detected = recognize(image, source)
-    blocks = group_lines(lines)[:MAX_BLOCKS]
+    blocks = build_units(lines, target)[:MAX_BLOCKS]
 
     # Язык распознавания ничего не решает: в тексте может быть намешано
     # два алфавита. Смотрим на сам текст блока.

@@ -209,8 +209,10 @@ How it works:
 1. **Recognition runs offline**, using the OCR engine built into Windows. No
    third-party programs, and the screenshot never leaves the machine. It needs
    Windows language packs: *Settings → Time & language → Language & region*.
-2. Lines are merged into paragraphs, so the translation reads as prose rather
-   than as disconnected lines.
+2. Lines that are entirely foreign are merged into paragraphs, so the
+   translation reads as prose rather than as disconnected lines. In a line
+   where foreign words sit among native ones, only those fragments are taken,
+   and the plate covers exactly them.
 3. **Translation goes over the internet.** Only the recognised text is sent,
    never the image. The program asks for permission the first time, and there
    is a separate checkbox in the settings.
@@ -227,7 +229,11 @@ more accurate on them. The translator is given the foreign language
 explicitly: with auto-detection it sees Cyrillic, declares the whole text
 Russian and returns it unchanged.
 
-Russian words stay untouched, English ones become Russian.
+Russian words stay untouched, English ones become Russian — literally: the
+plate is drawn over the English fragment alone, and the Russian around it is
+the original pixels of the shot. Short inserts (`fork 7`, `Max`) and names
+such as `TractPart_Project` or `config.json` are left as they are: translating
+them gains nothing and hides what the reader was looking for.
 
 ### Translation services
 

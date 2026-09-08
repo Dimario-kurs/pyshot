@@ -25,6 +25,7 @@ class TranslatedBlock:
     background: QColor
     foreground: QColor
     font_size: float
+    inline: bool = False        # вставка внутри чужой строки
 
 
 # --------------------------------------------------------------------------
@@ -144,16 +145,27 @@ def build_layer(image: QImage, blocks: list, scale: float,
         rect = QRectF(origin.x() + source.left() / scale,
                       origin.y() + source.top() / scale,
                       source.width() / scale, source.height() / scale)
-        rect = rect.adjusted(-PAD, -PAD, PAD, PAD)
+        # Распознаватель даёт рамку по самим буквам, без места под выносные
+        # элементы, а шрифт эту высоту требует. Не добавив запас, мы бы
+        # мельчили кегль там, где текст на самом деле помещается.
+        air = (block.line_height / scale) * 0.2
+        rect = rect.adjusted(-PAD, -PAD - air, PAD, PAD + air)
 
         # исходный кегль прикидываем по высоте строки
         start = max(MIN_FONT, (block.line_height / scale) * 0.78)
         size = fit_font_size(block.translation, rect, start)
 
-        # перевод на русский длиннее оригинала: прежде чем мельчить шрифт,
-        # пробуем расширить подложку вправо, если там есть свободное место
+        # Перевод на русский длиннее оригинала: прежде чем мельчить шрифт,
+        # пробуем расширить подложку вправо. Вставке внутри чужой строки
+        # разбегаться некуда — справа стоит соседнее слово, и закрасить его
+        # нельзя, поэтому ей достаётся только небольшой запас.
+        inline = getattr(block, "inline", False)
         if size < start * 0.9:
-            room = min(right_edge - rect.right() - 4, rect.width() * 0.9)
+            limit = rect.width() * 0.9
+            free = getattr(block, "room", -1.0)
+            if inline and free >= 0:
+                limit = free / scale - PAD     # ровно до соседнего слова
+            room = min(right_edge - rect.right() - 4, limit)
             if room > 10:
                 rect.setWidth(rect.width() + room)
                 size = fit_font_size(block.translation, rect, start)
@@ -165,11 +177,14 @@ def build_layer(image: QImage, blocks: list, scale: float,
             QRectF(0, 0, rect.width() - PAD * 2, 10000),
             Qt.TextWordWrap, block.translation)
         if needed.height() > rect.height():
-            rect.setHeight(needed.height() + PAD * 2)
+            # вставка не имеет права накрыть строку снизу
+            grown = needed.height() + PAD * 2
+            rect.setHeight(min(grown, rect.height() * 1.7) if inline else grown)
 
         layer.append(TranslatedBlock(rect=rect, text=block.translation,
                                      background=background,
-                                     foreground=foreground, font_size=size))
+                                     foreground=foreground, font_size=size,
+                                     inline=inline))
     return _even_out_sizes(layer)
 
 
@@ -193,6 +208,8 @@ def _even_out_sizes(layer: list) -> list:
 
     groups = {}
     for block in layer:
+        if block.inline:
+            continue                          # вставку равнять не с чем
         ratio = max(0.1, block.rect.height() / typical)
         key = round(math.log(ratio, 1.5))
         groups.setdefault(key, []).append(block)
