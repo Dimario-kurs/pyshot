@@ -294,6 +294,53 @@ check("соседняя колонка не приклеивается",
 
 check("пустой список не ломает разбор", tr_engine.group_lines([]) == [])
 
+# --- смешанный русско-английский текст ------------------------------------
+check("слово из букв-двойников считается латинским",
+      tr_engine._mistaken_latin("ту"))
+check("настоящее русское слово не трогаем",
+      not tr_engine._mistaken_latin("нет"))
+check("слово с «д» и «г» не подменяем",
+      not tr_engine._mistaken_latin("годом"))
+check("латинское слово распознано как латинское",
+      tr_engine._is_latin_word("antjfreeze"))
+check("русское слово латинским не считается",
+      not tr_engine._is_latin_word("сниму"))
+
+check("капс вместо строчных — не подмена",
+      not tr_engine._case_matches("сниму", "CHVIMY"))
+check("чехарда регистров — не подмена",
+      not tr_engine._case_matches("нет", "HeT"))
+check("одинаковый регистр — подмена допустима",
+      tr_engine._case_matches("ту", "my"))
+check("заглавная против капса — не подмена",
+      not tr_engine._case_matches("Сновым", "CHOBb1M"))
+
+# слияние двух прочтений: русское как основа, латинские слова от английского
+base = [(QRectF(10, 10, 30, 18), "ту"),
+        (QRectF(50, 10, 40, 18), "сниму"),
+        (QRectF(100, 10, 60, 18), "antjfreeze"),
+        (QRectF(170, 10, 50, 18), "годом")]
+latin = [(QRectF(11, 10, 29, 18), "my"),
+         (QRectF(51, 10, 39, 18), "CHVIMY"),
+         (QRectF(101, 10, 59, 18), "antifreeze"),
+         (QRectF(171, 10, 49, 18), "ropom")]
+merged = dict((text, i) for i, (_, text) in enumerate(
+    tr_engine._merge_readings(base, latin)))
+words = [text for _, text in tr_engine._merge_readings(base, latin)]
+check("слово-двойник заменено английским", words[0] == "my", words[0])
+check("русское слово сохранено", words[1] == "сниму", words[1])
+check("латинское слово уточнено английским движком",
+      words[2] == "antifreeze", words[2])
+check("русское слово с «г» и «д» не подменено", words[3] == "годом", words[3])
+
+# нужен ли перевод — решается по самому тексту, а не по языку распознавания
+for text, expected in (("Hello world, this is English", True),
+                       ("Полностью русский текст без латиницы", False),
+                       ("Смешанный текст with English words внутри", True),
+                       ("Файл", False)):
+    check(f"перевод нужен для {text[:28]!r}",
+          tr_engine.needs_translation(text, "ru") == expected)
+
 # --- слой: координаты, цвета, кегль ---------------------------------------
 canvas = QImage(400, 200, QImage.Format_RGB32)
 canvas.fill(QColor("#eef1f6"))

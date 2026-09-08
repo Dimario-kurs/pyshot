@@ -40,8 +40,48 @@ LATIN = re.compile(r"[A-Za-z]")
 
 # Кириллические буквы, неотличимые по начертанию от латинских. Если слово
 # целиком из них — вероятно, это латинское слово, прочитанное русским
-# движком: «ту» вместо «my». Слова с «ы», «д», «л» и подобными так не путают.
-HOMOGLYPHS = set("аАвВеЕкКмМнНоОрРсСтТуУхХ")
+# движком: «ту» вместо «my», «саг» вместо «car», «оп» вместо «on».
+HOMOGLYPHS = set("аАвВеЕгГиИкКмМнНоОпПрРсСтТуУхХ")
+
+# Настоящие русские слова, целиком состоящие из букв-двойников. Их подменять
+# нельзя, иначе «нет» превратится в мусор, который английский движок увидел
+# на том же месте.
+RUSSIAN_WORDS = {
+    "он", "она", "оно", "они", "нет", "как", "так", "там", "тут", "тот",
+    "это", "эти", "все", "всё", "уже", "нас", "вас", "нам", "вам", "мне",
+    "тем", "тот", "три", "сто", "раз", "мир", "рот", "сон", "кот", "нос",
+    "рис", "сор", "тон", "рок", "мех", "век", "суп", "мост", "тест", "спорт",
+    "март", "сорт", "торт", "метр", "мама", "папа", "рука", "нора", "вера",
+    "мера", "пора", "парк", "карта", "марка", "и", "в", "к", "с", "у", "о",
+    "а", "не", "на", "по", "от", "то", "но", "он", "их", "мы", "вы", "их",
+}
+
+
+def _case_shape(word: str) -> str:
+    """Как написано слово: строчными, с заглавной, капсом или вперемешку."""
+    letters = [c for c in word if c.isalpha()]
+    if not letters:
+        return "none"
+    if word == word.lower():
+        return "lower"
+    if word == word.upper():
+        return "upper"
+    if word == word.capitalize():
+        return "title"
+    return "mixed"
+
+
+def _case_matches(russian: str, latin: str) -> bool:
+    """Регистр подмены должен совпасть с исходным.
+
+    Английский движок, читая строчную кириллицу, выдаёт капс: «сниму»
+    превращается в «CHVIMY», «нет» — в «HeT». Настоящая же подмена
+    сохраняет вид слова: «ту» → «my», «саг» → «car».
+    """
+    shape = _case_shape(latin)
+    if shape == "mixed" or shape == "none":
+        return False
+    return shape == _case_shape(russian)
 
 # сколько блоков переводим за раз — защита от случайного снимка всего экрана
 MAX_BLOCKS = 40
@@ -152,6 +192,8 @@ def _mistaken_latin(word: str) -> bool:
     letters = [c for c in word if c.isalpha()]
     if not letters or not any(CYRILLIC.match(c) for c in letters):
         return False
+    if word.strip(".,:;!?()[]\"'").lower() in RUSSIAN_WORDS:
+        return False                    # настоящее русское слово, не трогаем
     return all(c in HOMOGLYPHS for c in letters)
 
 
@@ -171,7 +213,8 @@ def _merge_readings(base: list, latin: list) -> list:
     for rect, text in base:
         if _mistaken_latin(text) or _is_latin_word(text):
             for other_rect, other_text in latin:
-                if _same_place(rect, other_rect) and _looks_latin(other_text):
+                if (_same_place(rect, other_rect) and _looks_latin(other_text)
+                        and _case_matches(text, other_text)):
                     text = other_text
                     break
         merged.append((rect, text))

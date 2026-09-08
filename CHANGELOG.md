@@ -14,6 +14,17 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
   Both copies are now skipped when source and destination are the same file.
   The script lost its accidental double line spacing at the same time.
 
+## [1.1.1] — 2026-09-09
+
+### Fixed
+
+- Mixed Russian/English text: short Latin words that the Russian recogniser
+  turned into look-alike Cyrillic (`on` → `оп`, `car` → `саг`, `my` → `ту`)
+  are now taken from the English engine. The substitution only happens when
+  the case matches, because the English engine renders lowercase Cyrillic in
+  capitals — that is how `сниму` used to become `CHVIMY`. Common Russian words
+  spelled entirely with look-alike letters are protected by a stop list.
+
 ## [1.1.0] — 2026-09-09
 
 ### Added
@@ -113,5 +124,6 @@ First public release.
 
 [1.0.2]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.2
 [1.0.1]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.1
+[1.1.1]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.1
 [1.1.0]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.0
 [1.0.0]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.0
