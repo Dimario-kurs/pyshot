@@ -102,16 +102,20 @@ def estimate_colours(image: QImage, rect: QRectF) -> tuple:
 # подбор размера шрифта
 # --------------------------------------------------------------------------
 def fit_font_size(text: str, rect: QRectF, start: float) -> float:
-    """Наибольший размер, при котором перевод влезает в прямоугольник."""
+    """Наибольший размер, при котором перевод влезает в прямоугольник.
+
+    Ширину проверяем отдельно: перенос по словам не разрывает длинное слово
+    вроде «фотографии», и оно вылезает за подложку, а лишнее обрезается.
+    """
+    width = rect.width() - PAD * 2
     size = max(MIN_FONT, start)
     font = QFont()
     while size > MIN_FONT:
         font.setPointSizeF(size)
         metrics = QFontMetricsF(font)
-        needed = metrics.boundingRect(
-            QRectF(0, 0, rect.width() - PAD * 2, 10000),
-            Qt.TextWordWrap, text)
-        if needed.height() <= rect.height() - PAD:
+        needed = metrics.boundingRect(QRectF(0, 0, width, 10000),
+                                      Qt.TextWordWrap, text)
+        if needed.height() <= rect.height() - PAD and needed.width() <= width:
             return size
         size -= 0.5
     return MIN_FONT
@@ -166,6 +170,47 @@ def build_layer(image: QImage, blocks: list, scale: float,
         layer.append(TranslatedBlock(rect=rect, text=block.translation,
                                      background=background,
                                      foreground=foreground, font_size=size))
+    return _even_out_sizes(layer)
+
+
+def _even_out_sizes(layer: list) -> list:
+    """Строки одного размера должны и в переводе выглядеть одинаково.
+
+    Иначе в меню соседние пункты получают кегль 9 и 11.5 — вроде мелочь,
+    а выглядит неряшливо. Внутри группы близких по высоте строк берём
+    наименьший подошедший размер: так влезут все.
+    """
+    # Высота рамки от строки к строке гуляет: у «Google Drive» есть хвост
+    # буквы g, у «Add folder» нет. Поэтому сравниваем не абсолютные высоты,
+    # а отношение к типичной: всё в пределах полутора раз — один размер.
+    if not layer:
+        return layer
+
+    import math
+
+    heights = sorted(block.rect.height() for block in layer)
+    typical = heights[len(heights) // 2] or 1.0
+
+    groups = {}
+    for block in layer:
+        ratio = max(0.1, block.rect.height() / typical)
+        key = round(math.log(ratio, 1.5))
+        groups.setdefault(key, []).append(block)
+
+    for blocks in groups.values():
+        if len(blocks) < 2:
+            continue
+        smallest = min(block.font_size for block in blocks)
+        for block in blocks:
+            if block.font_size != smallest:
+                block.font_size = smallest
+                font = QFont()
+                font.setPointSizeF(smallest)
+                needed = QFontMetricsF(font).boundingRect(
+                    QRectF(0, 0, block.rect.width() - PAD * 2, 10000),
+                    Qt.TextWordWrap, block.text)
+                if needed.height() > block.rect.height():
+                    block.rect.setHeight(needed.height() + PAD * 2)
     return layer
 
 

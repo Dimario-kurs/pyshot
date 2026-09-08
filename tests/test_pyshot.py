@@ -345,11 +345,30 @@ check("латинское слово уточнено английским дв�
       words[2] == "antifreeze", words[2])
 check("русское слово с «г» и «д» не подменено", words[3] == "годом", words[3])
 
+# окружение решает: среди латиницы верим английскому движку
+check("слово среди латиницы считается латинским",
+      tr_engine._context([(None, "Manage"), (None, "Мападе"),
+                          (None, "connectors")], 1) == "latin")
+check("слово рядом с русским считается русским",
+      tr_engine._context([(None, "Сервис"), (None, "перевода")], 0) == "russian")
+check("однозначно русское слово опознано",
+      tr_engine._surely_russian("перевода") and not tr_engine._surely_russian("сотес"))
+check("однозначно латинское слово опознано",
+      tr_engine._surely_latin("connectors") and not tr_engine._surely_latin("оп"))
+
 # нужен ли перевод — решается по самому тексту, а не по языку распознавания
 for text, expected in (("Hello world, this is English", True),
                        ("Полностью русский текст без латиницы", False),
                        ("Смешанный текст with English words внутри", True),
-                       ("Файл", False)):
+                       ("Файл", False),
+                       # латиница в русских подписях — не повод переводить
+                       ("Качество JPEG:", False),
+                       ("Снимок по таймеру: Ctrl+3", False),
+                       ("Формат файла: png", False),
+                       ("Папка: C:" + chr(92) + "Users" + chr(92) + "Dima", False),
+                       ("Открыть https://github.com/pyshot", False),
+                       ("Add files or photos", True),
+                       ("Today is my birthday. Сновым годом господа", True)):
     check(f"перевод нужен для {text[:28]!r}",
           tr_engine.needs_translation(text, "ru") == expected)
 

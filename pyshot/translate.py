@@ -86,6 +86,20 @@ def _case_matches(russian: str, latin: str) -> bool:
 # сколько блоков переводим за раз — защита от случайного снимка всего экрана
 MAX_BLOCKS = 40
 REQUEST_TIMEOUT = 12
+# сколько знаков отправляем одним запросом
+CHUNK_LIMIT = 1400
+# меньше этого числа чужих букв текст считаем своим
+MIN_FOREIGN_LETTERS = 6
+# какую долю букв должен занимать чужой алфавит
+FOREIGN_SHARE = 0.35
+
+# то, что выглядит как путь, ссылка или шаблон даты: переводить там нечего
+NOT_TEXT = re.compile(
+    r"[A-Za-z]:[\\/][^\s]*"                 # C:\Users\Dima
+    r"|[A-Za-z][A-Za-z0-9+.\-]*://[^\s]*"   # https://…
+    r"|www\.[^\s]*"
+    r"|%[A-Za-z]"                           # %Y-%m-%d
+)
 
 
 @dataclass
@@ -202,6 +216,37 @@ def _is_latin_word(word: str) -> bool:
     return bool(word) and not any(CYRILLIC.match(c) for c in word if c.isalpha())
 
 
+def _surely_russian(word: str) -> bool:
+    """В слове есть кириллическая буква без латинского двойника."""
+    return any(CYRILLIC.match(c) and c not in HOMOGLYPHS
+               for c in word if c.isalpha())
+
+
+def _surely_latin(word: str) -> bool:
+    """Слово уверенно латинское: две буквы и больше, кириллицы нет."""
+    letters = [c for c in word if c.isalpha()]
+    return len(letters) >= 2 and _is_latin_word(word)
+
+
+def _context(words: list, index: int) -> str:
+    """Что вокруг слова: латиница, кириллица или непонятно.
+
+    По самому слову часто не решить. «Сервис» состоит из одних букв-двойников
+    и выглядит как латиница, но рядом стоит «перевода» — значит русское.
+    А «Мападе» рядом с «connectors» — это неверно прочитанное «Manage».
+    """
+    neighbours = []
+    if index > 0:
+        neighbours.append(words[index - 1][1])
+    if index + 1 < len(words):
+        neighbours.append(words[index + 1][1])
+    if any(_surely_russian(word) for word in neighbours):
+        return "russian"
+    if any(_surely_latin(word) for word in neighbours):
+        return "latin"
+    return "unknown"
+
+
 def _merge_readings(base: list, latin: list) -> list:
     """Русское чтение — основа, но латинские слова берём у английского движка.
 
@@ -271,9 +316,28 @@ def recognize(image: QImage, language: str = "auto") -> tuple[list, str]:
     best = results[best_tag]
     fixes = {}
     if best_tag == russian and english:
-        merged = _merge_readings(_words_of(best), _words_of(results[english]))
-        fixes = {(round(rect.x()), round(rect.y())): text
-                 for rect, text in merged}
+        latin_words = _words_of(results[english])
+        for ocr_line in best.lines:
+            words = []
+            for word in ocr_line.words:
+                box = word.bounding_rect
+                words.append((QRectF(box.x, box.y, box.width, box.height),
+                              word.text))
+
+            for index, (rect, text) in enumerate(words):
+                where = _context(words, index)
+                if where == "russian":
+                    continue                    # рядом русские слова — не трогаем
+                if where == "unknown" and not (_mistaken_latin(text)
+                                               or _is_latin_word(text)):
+                    continue                    # судить не по чему, осторожничаем
+
+                for other_rect, other_text in latin_words:
+                    if (_same_place(rect, other_rect)
+                            and _looks_latin(other_text)
+                            and _case_matches(text, other_text)):
+                        fixes[(round(rect.x()), round(rect.y()))] = other_text
+                        break
 
     lines = []
     for ocr_line in best.lines:
@@ -337,6 +401,85 @@ def translate_text(text: str, source: str, target: str,
     if provider == "azure":
         return _translate_azure(text, source, target, key)
     return _translate_google(text, source, target)
+
+
+def translate_batch(texts: list, source: str, target: str,
+                    provider: str = "google", key: str = "") -> list:
+    """Переводит сразу список кусков — за один запрос вместо десятка.
+
+    Отдельный запрос на каждый абзац превращал перевод большого снимка
+    в минуту ожидания: сорок абзацев по секунде. Здесь всё уходит пачкой.
+    """
+    if not texts:
+        return []
+    if provider == "deepl":
+        return _batch_deepl(texts, source, target, key)
+    if provider == "azure":
+        return _batch_azure(texts, source, target, key)
+    return _batch_google(texts, source, target)
+
+
+def _batch_google(texts: list, source: str, target: str) -> list:
+    """Куски склеиваем переносами: переводчик возвращает столько же строк."""
+    result = []
+    chunk, size = [], 0
+    for text in texts + [None]:                     # None — сигнал «допереводить»
+        if text is not None:
+            single = text.replace("\n", " ").strip() or " "
+            if size + len(single) > CHUNK_LIMIT and chunk:
+                result.extend(_google_lines(chunk, source, target))
+                chunk, size = [], 0
+            chunk.append(single)
+            size += len(single) + 1
+        elif chunk:
+            result.extend(_google_lines(chunk, source, target))
+    return result
+
+
+def _google_lines(chunk: list, source: str, target: str) -> list:
+    joined = "\n".join(chunk)
+    answer = _translate_google(joined, source, target)
+    lines = answer.split("\n")
+    if len(lines) == len(chunk):
+        return lines
+    # переводчик перекроил строки — переводим по одной, чтобы не съехало
+    return [_translate_google(piece, source, target) for piece in chunk]
+
+
+def _batch_deepl(texts: list, source: str, target: str, key: str) -> list:
+    if not key:
+        raise RuntimeError("Для DeepL нужен ключ API в настройках")
+    host = "api-free.deepl.com" if key.endswith(":fx") else "api.deepl.com"
+    fields = [("text", piece) for piece in texts]
+    fields.append(("target_lang", target.upper()))
+    if source and source != "auto":
+        fields.append(("source_lang", source.upper()))
+    request = urllib.request.Request(
+        f"https://{host}/v2/translate",
+        data=urllib.parse.urlencode(fields).encode(),
+        headers={"Authorization": f"DeepL-Auth-Key {key}"})
+    with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT) as response:
+        data = json.load(response)
+    return [item["text"] for item in data["translations"]]
+
+
+def _batch_azure(texts: list, source: str, target: str, key: str) -> list:
+    if not key:
+        raise RuntimeError("Для Azure нужен ключ API в настройках")
+    key, _, region = key.partition("|")
+    url = ("https://api.cognitive.microsofttranslator.com/translate"
+           f"?api-version=3.0&to={target}")
+    if source and source != "auto":
+        url += f"&from={source}"
+    headers = {"Ocp-Apim-Subscription-Key": key,
+               "Content-Type": "application/json"}
+    if region:
+        headers["Ocp-Apim-Subscription-Region"] = region
+    body = json.dumps([{"Text": piece} for piece in texts]).encode()
+    request = urllib.request.Request(url, data=body, headers=headers)
+    with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT) as response:
+        data = json.load(response)
+    return [item["translations"][0]["text"] for item in data]
 
 
 def _translate_google(text: str, source: str, target: str) -> str:
@@ -404,26 +547,49 @@ def translate_image(image: QImage, source: str = "auto", target: str = "ru",
         source = "en" if target.lower().startswith("ru") else "ru"
     else:
         source = source.split("-")[0]
+    pending = [block for block in blocks
+               if needs_translation(block.text, target)]
     for block in blocks:
-        if needs_translation(block.text, target):
-            block.translation = translate_text(block.text, source, target,
-                                               provider, key)
-        else:
-            block.translation = ""
+        block.translation = ""
+    if pending:
+        translated = translate_batch([block.text for block in pending],
+                                     source, target, provider, key)
+        for block, text in zip(pending, translated):
+            block.translation = text
     return blocks
 
 
 def needs_translation(text: str, target: str) -> bool:
-    """Есть ли в тексте слова на чужом для целевого языка алфавите."""
+    """Стоит ли переводить этот кусок.
+
+    Мало найти чужие буквы: в русских подписях полно латиницы — JPEG, Ctrl,
+    PNG, шаблоны вида %Y-%m-%d. Если переводить такие строки как английские,
+    получается бессмыслица: «Качество JPEG» превращается в «Формат JPEG».
+    Поэтому требуем, чтобы чужой алфавит преобладал и встречался в словах,
+    а не в одиночных сокращениях.
+    """
+    # пути, ссылки и шаблоны дат — не текст для перевода
+    text = NOT_TEXT.sub(" ", text)
+
     cyrillic = len(CYRILLIC.findall(text))
     latin = len(LATIN.findall(text))
     if target.lower().startswith("ru"):
         foreign, native = latin, cyrillic
+        pattern = LATIN
     else:
         foreign, native = cyrillic, latin
-    if foreign < 3:
+        pattern = CYRILLIC
+
+    # Строгое преобладание не годится: во фразе «Today is my birthday.
+    # Сновым годом господа» букв поровну, а переводить её надо. Смотрим долю.
+    if foreign < MIN_FOREIGN_LETTERS:
         return False
-    return foreign >= max(3, (foreign + native) * 0.15)
+    if foreign < (foreign + native) * FOREIGN_SHARE:
+        return False
+
+    # хотя бы одно настоящее слово, а не аббревиатура вроде JPEG или Ctrl
+    words = [w for w in re.split(r"[^\w]+", text) if len(pattern.findall(w)) >= 4]
+    return bool(words)
 
 
 # --------------------------------------------------------------------------

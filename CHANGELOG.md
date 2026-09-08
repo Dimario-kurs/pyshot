@@ -14,6 +14,33 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
   Both copies are now skipped when source and destination are the same file.
   The script lost its accidental double line spacing at the same time.
 
+## [1.1.3] — 2026-09-09
+
+### Fixed
+
+- **Translation was slow to the point of looking frozen.** Every paragraph was
+  sent as a separate request: forty paragraphs on a full-screen shot meant
+  about forty seconds of a silent "Translating…". Everything now goes in one
+  batched request — the same screenshot takes about two seconds.
+- **Russian labels were being "translated" from English.** A block was sent for
+  translation when Latin letters made up as little as 15 % of it, and Russian
+  interface labels are full of Latin: JPEG, Ctrl, PNG, `%Y-%m-%d`, file paths.
+  That turned «Качество JPEG» into «Формат JPEG». Now the foreign script has to
+  make up at least 35 % of the letters, paths and URLs are excluded from the
+  count, and a real foreign word is required.
+- **Words were substituted between recognisers by context, not by shape.**
+  `Manage` read as `Мападе` next to `connectors` is now corrected from the
+  English engine, while `Сервис` next to `перевода` is left alone. Previously
+  the first stayed broken and the second could be replaced with garbage.
+- **Long words were clipped**: word wrap cannot break «фотографии», so the tail
+  was cut off. The font size now accounts for width as well as height.
+- **Font sizes jumped between neighbouring lines** (9 pt next to 11.5 pt in one
+  menu) because recognised boxes differ in height depending on ascenders. Lines
+  of a similar size now share one size.
+- Translation can no longer hang: pressing the button again cancels it, a
+  watchdog gives up after 45 seconds, and the worker is kept referenced so a
+  finished job cannot be lost before it reports back.
+
 ## [1.1.2] — 2026-09-09
 
 ### Changed
@@ -137,6 +164,7 @@ First public release.
 
 [1.0.2]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.2
 [1.0.1]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.1
+[1.1.3]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.3
 [1.1.2]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.2
 [1.1.1]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.1
 [1.1.0]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.0

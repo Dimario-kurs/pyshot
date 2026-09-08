@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import (QObject, QPoint, QPointF, QRect, QRectF, QRunnable,
-                            QSize, Qt, QThreadPool, Signal)
+                            QSize, Qt, QThreadPool, QTimer, Signal)
 from PySide6.QtGui import (QColor, QFont, QGuiApplication, QImage, QPainter,
                            QPen)
 from PySide6.QtWidgets import QMessageBox, QTextEdit, QWidget
@@ -17,6 +17,8 @@ from .shapes import Shape
 HANDLE_SIZE = 8
 HANDLE_GRAB = 10
 MIN_SELECTION = 4
+# сколько ждём переводчик, прежде чем признать неудачу
+TRANSLATE_TIMEOUT = 45_000
 
 # режимы перетаскивания
 DRAG_NONE = 0
@@ -121,6 +123,8 @@ class Overlay(QWidget):
         self._redo: list[Shape] = []
         self.translation: list = []                 # слой с переводом
         self._translating = False
+        self._translate_task = None                 # ссылка живёт до ответа
+        self._translate_run = 0                     # номер запуска: старые ответы игнорируем
         self._current: Shape | None = None
         self._editor: _TextEditor | None = None
 
@@ -556,7 +560,13 @@ class Overlay(QWidget):
 
     def toggle_translation(self) -> None:
         """Кнопка «Перевести»: первое нажатие показывает, второе убирает."""
-        if self._translating:
+        if self._translating:                       # идёт работа — отменяем
+            self._translate_run += 1
+            self._translating = False
+            self._translate_task = None
+            if self.tool_panel is not None:
+                self.tool_panel.set_translate_state(False, busy=False)
+            self.update()
             return
         if self.translation:                        # снимаем слой
             self.translation = []
@@ -578,14 +588,37 @@ class Overlay(QWidget):
             self.tool_panel.set_translate_state(False, busy=True)
         self.update()
 
+        self._translate_run += 1
+        run = self._translate_run
+
         task = _TranslateTask(self.selection_image(), {
             "from": str(self.cfg["translate_from"]),
             "to": str(self.cfg["translate_to"]),
             "provider": str(self.cfg["translate_provider"]),
             "key": str(self.cfg["translate_key"]),
         })
-        task.signals.done.connect(self._translation_ready)
+        # держим ссылку: иначе задача может исчезнуть раньше, чем дойдёт ответ
+        task.setAutoDelete(False)
+        self._translate_task = task
+        task.signals.done.connect(
+            lambda blocks, error, run=run: self._translation_ready(
+                blocks, error, run))
         QThreadPool.globalInstance().start(task)
+
+        # сторож: если ответа нет слишком долго, не оставляем висеть «Перевожу…»
+        QTimer.singleShot(TRANSLATE_TIMEOUT, lambda run=run: self._give_up(run))
+
+    def _give_up(self, run: int) -> None:
+        if not self._translating or run != self._translate_run:
+            return
+        self._translating = False
+        self._translate_task = None
+        if self.tool_panel is not None:
+            self.tool_panel.set_translate_state(False, busy=False)
+        self.update()
+        QMessageBox.warning(self, tr("Не удалось перевести"),
+                            tr("Переводчик не ответил вовремя. "
+                               "Проверьте подключение к интернету."))
 
     def _allow_translation(self) -> bool:
         """Перевод уходит в интернет — спрашиваем разрешение один раз."""
@@ -603,7 +636,10 @@ class Overlay(QWidget):
         self.cfg.save()
         return True
 
-    def _translation_ready(self, blocks, error: str) -> None:
+    def _translation_ready(self, blocks, error: str, run: int = 0) -> None:
+        if run and run != self._translate_run:
+            return                                  # ответ от отменённого запуска
+        self._translate_task = None
         self._translating = False
         if self.tool_panel is not None:
             self.tool_panel.set_translate_state(bool(blocks), busy=False)
