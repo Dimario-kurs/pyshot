@@ -2,372 +2,75 @@
 
 # PyShot
 
-**A fast screenshot tool for Windows — select an area, click a window, or set a timer, then annotate and save.**
-
-Inspired by Lightshot's editor and the macOS Screenshot timer, written from scratch in Python + Qt.
+**A screenshot tool for Windows: grab an area, a window with one click, or a timed shot — annotate and save.**
 
 [![CI](https://github.com/Dimario-kurs/pyshot/actions/workflows/ci.yml/badge.svg)](https://github.com/Dimario-kurs/pyshot/actions/workflows/ci.yml)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab?logo=python&logoColor=white)](https://www.python.org/)
-[![PySide6](https://img.shields.io/badge/GUI-PySide6-41cd52?logo=qt&logoColor=white)](https://doc.qt.io/qtforpython/)
-[![Platform: Windows](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078d4?logo=windows&logoColor=white)](#requirements)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 **English** · [Русский](README.ru.md)
 
-<img src="docs/editor.png" alt="PyShot selection window with the drawing toolbar" width="820">
+<img src="docs/editor.png" alt="PyShot selection overlay with the tool panel" width="820">
 
 </div>
 
----
+## What it does
 
-## Contents
+- Capture an area, the window under the cursor (one click), or the whole screen.
+- Timed capture: the program remembers your last frame and counts down over the
+  live screen, so menus and tooltips stay open and land in the shot.
+- Annotate on top: pencil, line, arrow, rectangle, marker, text, colour and
+  width, undo.
+- Save as PNG or JPEG, or copy to the clipboard.
+- Translate the text on a shot — the **АЯ** button or <kbd>Ctrl</kbd>+<kbd>T</kbd>.
+  Recognition runs offline through Windows; only the recognised text goes online,
+  and only with your permission.
+- Russian and English interface, switchable in the settings.
 
-- [Why PyShot](#why-pyshot)
-- [Features](#features)
-- [Installation](#installation)
-- [Quick start](#quick-start)
-- [Capture modes](#capture-modes)
-- [Editor](#editor)
-- [Settings](#settings)
-- [Colour accuracy](#colour-accuracy)
-- [High-DPI and multi-monitor](#high-dpi-and-multi-monitor)
-- [Building the executable](#building-the-executable)
-- [Project layout](#project-layout)
-- [Development](#development)
-- [Limitations](#limitations)
-- [License](#license)
-
----
-
-## Why PyShot
-
-Most screenshot tools either upload your screen to somebody's server or bury the
-useful part behind an account. PyShot does neither: **nothing ever leaves your
-machine** — no uploads, no sharing, no reverse image search, no telemetry, no
-account. It lives in the system tray, answers a hotkey, and writes a PNG next to
-you.
-
-Two things it does that its inspirations do separately:
-
-- **Lightshot-style editor** — pencil, line, arrow, rectangle, marker and text,
-  right on top of the frozen screen.
-- **macOS-style timer** — the frame you used last time comes back, you adjust it,
-  press *Capture*, and the shot is taken a few seconds later **without touching
-  the mouse**. That is the only way to photograph a menu or a tooltip that closes
-  the moment you click somewhere else.
-
-## Features
-
-| | |
-|---|---|
-| **Area capture** | Freeze the screen, drag a rectangle, move it or resize it by eight handles, live pixel size readout. |
-| **Window capture** | Hover a window — it lights up at full brightness with a blue outline — click to capture it whole. Real window bounds come from the DWM, without the invisible resize border. |
-| **Full screen** | One hotkey, straight to a file. |
-| **Timer** | Off / 3 / 5 / 10 seconds. The overlay disappears *before* the countdown, so the screen stays live and popups stay open. |
-| **Annotations** | Pencil, line, arrow, rectangle, marker, text; 12-colour palette plus a colour picker; line width 1–20; undo/redo. |
-| **Output** | PNG or JPEG with adjustable quality, `strftime` filename template, automatic de-duplication of names, clipboard copy, optional "open folder" and toast notification. |
-| **On-shot translation** | A toolbar button: text is recognised offline by Windows, translated, and drawn over the original on matching plates. Press again to remove it. See [Translation](#translating-the-text-on-a-shot). |
-| **Bilingual** | Russian and English, switched in Settings, applied to the tray menu immediately. |
-| **Correct colours** | Saved files are tagged with the display's ICC profile, so a screenshot looks exactly like the screen it came from — see [Colour accuracy](#colour-accuracy). |
-| **Full resolution** | On a 150 % display a 500 × 320 selection is saved as 750 × 480 real pixels. |
-| **Global hotkeys** | Registered through the Win32 `RegisterHotKey` API, configurable by pressing the combination you want. |
-| **Autostart** | A checkbox in Settings writes and removes the `HKCU\...\Run` entry — no digging through Task Manager. |
-
-Everything is drawn in code: the tray icon, the toolbar icons and the application
-`.ico` are generated by `QPainter`, so the repository ships no binary art assets.
-
-## Installation
-
-### Option A — install the released build (recommended)
+## Install
 
 Download the archive from [Releases](../../releases), unpack it and run
-**`Установить PyShot.bat`**. Windows asks for administrator rights once, then
-the installer:
+**`Установить PyShot.bat`**. It installs to `C:\Program Files\PyShot`, adds a
+Start menu shortcut and registers an uninstall entry.
 
-- copies the program to **`C:\Program Files\PyShot`** — the standard location
-  for installed software, protected by Windows, so it cannot be deleted by
-  accident;
-- adds a shortcut to the **Start menu** for every user of the computer;
-- registers PyShot in **Settings → Apps → Installed apps**, so it uninstalls the
-  usual way;
-- removes an older per-user copy if one exists and keeps your "Start with
-  Windows" preference pointing at the new location;
-- starts the program as a normal, non-elevated process — silently, with no
-  console window: the only sign of life is the tray icon.
+To remove: *Settings → Apps → PyShot → Uninstall*. Your settings and screenshots
+stay where they are.
 
-Prefer a per-user installation without the UAC prompt? Run
-`powershell -ExecutionPolicy Bypass -File tools\install.ps1 -PerUser` and the
-program goes to `%LOCALAPPDATA%\Programs\PyShot` instead.
-
-To remove it: *Settings → Apps → PyShot → Uninstall*. Your settings
-(`%APPDATA%\PyShot`) and the screenshots you took are deliberately left alone.
-
-### Option B — from source
+From source:
 
 ```bash
-git clone git@github.com:Dimario-kurs/pyshot.git
-cd pyshot
 python -m pip install -r requirements.txt
-python main.py
+pythonw main.py
 ```
 
-On Windows use `pythonw main.py` (or `tools\run_from_source.bat`) to start it
-without a console window.
+Needs Windows 10 or 11, Python 3.10+ and PySide6 — no other dependencies.
 
-### Requirements
-
-- Windows 10 or 11 — global hotkeys and window enumeration use the Win32 API
-- Python 3.10+ (developed and tested on 3.13)
-- PySide6 6.6+ — the only dependency
-
-## Quick start
-
-1. Start PyShot. A blue tile icon appears in the notification area.
-   Left-click it for Settings, right-click for the full menu.
-2. Press <kbd>Ctrl</kbd>+<kbd>4</kbd>. The screen dims and freezes.
-3. Click a window, or drag a rectangle.
-4. Draw on it if you want, then press <kbd>Enter</kbd> to save or
-   <kbd>Ctrl</kbd>+<kbd>C</kbd> to copy.
-
-Files land in **`Desktop\Скриншоты`** by default; the folder is created on first
-run and can be changed in Settings.
-
-### Default hotkeys
+## Hotkeys
 
 | Shortcut | Action |
 |---|---|
-| <kbd>Ctrl</kbd>+<kbd>4</kbd> | capture an area or a window |
-| <kbd>Ctrl</kbd>+<kbd>5</kbd> | capture the whole screen |
-| <kbd>Ctrl</kbd>+<kbd>6</kbd> | timed capture of the remembered frame |
+| <kbd>Ctrl</kbd>+<kbd>4</kbd> | area or window |
+| <kbd>Ctrl</kbd>+<kbd>5</kbd> | whole screen |
+| <kbd>Ctrl</kbd>+<kbd>6</kbd> | timed shot of the remembered frame |
 
-All three are configurable — click the field in Settings and press the
-combination you want. If Windows or another program already owns a combination,
-PyShot says so in a notification instead of failing silently.
+All three are configurable. Inside the overlay: <kbd>Enter</kbd> saves,
+<kbd>Ctrl</kbd>+<kbd>C</kbd> copies, <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes,
+<kbd>Esc</kbd> closes.
 
-### Inside the capture window
-
-| Key | Action |
-|---|---|
-| <kbd>Ctrl</kbd>+<kbd>A</kbd> | select the whole screen |
-| <kbd>Enter</kbd> / <kbd>Ctrl</kbd>+<kbd>S</kbd> | save to the configured folder |
-| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> | save as… |
-| <kbd>Ctrl</kbd>+<kbd>C</kbd> | copy to the clipboard |
-| <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> | undo / redo a drawing |
-| <kbd>Esc</kbd> or right-click | drop the tool → drop the selection → close |
-| double-click | copy the selection |
-
-## Capture modes
-
-### Area and window
-
-<img src="docs/window-highlight.png" alt="The window under the cursor is highlighted" width="700">
-
-Move the mouse without pressing anything: the window under the cursor is shown at
-full brightness with a blue outline and its size, everything else stays dimmed.
-Click — the whole window is captured. Drag instead, and you get a free-form
-rectangle. Overlapping windows are resolved by z-order, and the desktop
-background is never offered as a "window".
-
-### Timer
-
-<img src="docs/timer.png" alt="Timer mode with the Capture button" width="700">
-
-<kbd>Ctrl</kbd>+<kbd>6</kbd> brings back **the frame you used last time** — adjust
-it, or draw a new one — and shows a small panel with the delay and a *Capture*
-button. Press it and the overlay disappears at once; the countdown runs over the
-live screen, so you can open a tray flyout, a context menu or a tooltip and keep
-the mouse still. When the countdown ends, that rectangle is saved. The countdown
-stands in the middle of the frame it is about to capture and is sized to it —
-large digits for a full screen, small ones for a small region — so it never
-lands on another monitor or covers the whole shot.
-
-Set the timer to **off** and *Capture* fires immediately. The frame is stored in
-the settings file and survives restarts.
-
-When the countdown ends the shot opens in the **normal editor**: draw on it and
-choose copy, save or close. Prefer the file to be written straight away? Untick
-*Settings → Timer and startup → “Open the editor after a timed capture”*.
-
-## Editor
-
-The toolbar mirrors Lightshot: pencil, line, arrow, rectangle, marker, text, a
-colour swatch (which also hides the line-width slider) and undo. The bottom panel
-keeps only what is needed — copy, save, close.
-
-Text is typed directly on the screenshot; the marker is a translucent chisel
-stroke; arrow heads scale with the line width. Annotations are rendered into the
-final image at full device resolution, not at the on-screen size.
-
-## Translating the text on a shot
-
-The **АЯ** button in the right panel, under the undo arrow, or
-<kbd>Ctrl</kbd>+<kbd>T</kbd>. The first press translates, the second removes
-the translation and brings the original frame back. The translation is part of
-the saved file and of the clipboard copy.
-
-How it works:
-
-1. **Recognition runs offline**, using the OCR engine built into Windows. No
-   third-party programs, and the screenshot never leaves the machine. It needs
-   Windows language packs: *Settings → Time & language → Language & region*.
-2. Lines that are entirely foreign are merged into paragraphs, so the
-   translation reads as prose rather than as disconnected lines. In a line
-   where foreign words sit among native ones, only those fragments are taken,
-   and the plate covers exactly them.
-3. **Translation goes over the internet.** Only the recognised text is sent,
-   never the image. The program asks for permission the first time, and there
-   is a separate checkbox in the settings.
-4. Plates are drawn over the original: background and text colours are taken
-   from the shot itself, and the font size is fitted so the translation fits.
-
-### Mixed-language text
-
-When Russian and English are mixed on one shot, the program sorts it out. The
-English recogniser physically cannot output Cyrillic and turns Russian words
-into look-alike Latin, so the Russian engine is used as the base — it reads
-both alphabets. Latin words are then taken from the English engine, which is
-more accurate on them. The translator is given the foreign language
-explicitly: with auto-detection it sees Cyrillic, declares the whole text
-Russian and returns it unchanged.
-
-Russian words stay untouched, English ones become Russian — literally: the
-plate is drawn over the English fragment alone, and the Russian around it is
-the original pixels of the shot. Short inserts (`fork 7`, `Max`) and names
-such as `TractPart_Project` or `config.json` are left as they are: translating
-them gains nothing and hides what the reader was looking for.
-
-### Translation services
-
-| Service | Key | Notes |
-|---|---|---|
-| **Google** | not needed | works out of the box, the default; the endpoint is undocumented and may stop responding |
-| **DeepL** | required | best quality for European languages |
-| **Azure Translator** | required | 2M characters per month for free |
-
-The key goes into *Settings → Translation*.
+Tray icon: left click opens the settings, right click opens the menu.
 
 ## Settings
 
-Tray → **Settings…**
+Output folder (`Desktop\Скриншоты` by default), file format and quality,
+filename template, hotkeys, language, timer delay, start with Windows,
+translation options.
 
-<img src="docs/settings-en.png" alt="PyShot settings window" width="640">
-
-| Group | What is inside |
-|---|---|
-| Language | Russian / English, applied to the tray menu immediately |
-| Saving | folder, PNG/JPEG + quality, filename template, clipboard copy, open folder, notifications, colour profile |
-| Hotkeys | three fields that record the combination you press; <kbd>Backspace</kbd> clears one |
-| Timer and startup | default delay, countdown visibility, editor after a timed capture, "Start with Windows" |
-
-Settings live in `%APPDATA%\PyShot\config.json` — plain JSON, safe to edit by hand
-or to delete for a clean start.
-
-## Colour accuracy
-
-A screenshot that looks duller than the screen it came from is a classic
-complaint, and it is not the capture's fault. PyShot reads pixels exactly:
-`#ff0000` on screen is `#ff0000` in the file, verified by the test suite.
-
-The difference appears **when the image is displayed**. The desktop is drawn
-without colour management, while viewers such as Photos or Chrome convert images
-into the monitor's ICC profile. On a wide-gamut or HDR-calibrated display, that
-conversion visibly changes an untagged screenshot.
-
-So PyShot tags saved files with the **display's own ICC profile** — exactly what
-macOS does. The viewer's conversion becomes an identity transform and the file
-matches the screen. If you share screenshots with other people, switch
-*Colours in the file* to **sRGB**; **none** reproduces the old untagged
-behaviour. Pixels are never rewritten, only the tag changes.
-
-## High-DPI and multi-monitor
-
-Every screen is grabbed separately and composed into one virtual-desktop image at
-the highest device pixel ratio present, so a selection on a 150 % display is saved
-at 150 % — a 500 × 320 rectangle becomes a 750 × 480 file. Monitors of different
-sizes and scale factors are stitched by their real geometry, and a selection may
-cross the boundary between them.
-
-## Building the executable
+## Build and tests
 
 ```bash
-tools\build_exe.bat
+python tests/test_pyshot.py     # tests
+tools\build_exe.bat             # builds dist\PyShot.exe
 ```
-
-or manually:
-
-```bash
-python -m pip install pyinstaller
-python tools/make_ico.py
-python -m PyInstaller --noconfirm --clean --noconsole --onefile --name PyShot --icon assets/PyShot.ico main.py
-```
-
-The result is `dist/PyShot.exe`, roughly 46 MB, self-contained. The application
-icon is generated by `tools/make_ico.py`, which packs eight sizes (16 – 256 px)
-into a proper multi-resolution `.ico`. Every push to `main` builds the same
-executable on GitHub Actions and uploads it as an artifact.
-
-## Project layout
-
-```
-main.py                    entry point, single-instance lock
-pyshot/
-├── app.py                 tray icon, menu, hotkey routing, capture flows
-├── capture.py             grabbing all screens into one image
-├── overlay.py             the frozen full-screen window: selection and drawing
-├── panels.py              toolbars, generated icons, colour and timer popups
-├── shapes.py              annotation primitives and their rendering
-├── storage.py             saving, clipboard, ICC profile tagging
-├── winlist.py             window rectangles for the hover highlight
-├── countdown.py           the timer widget
-├── settings_dialog.py     settings window
-├── hotkeys.py             global hotkeys via RegisterHotKey + native event filter
-├── config.py              JSON settings, autostart registry entry
-├── i18n.py                Russian and English interface strings
-├── translate.py           text recognition and the translation providers
-└── translation_layer.py   plates with the translation: colours and fitting
-Установить PyShot.bat       per-user installer entry point
-tools/
-├── install.ps1            install to Program Files (or --PerUser), shortcut,
-│                          uninstall entry, migration of an older copy
-├── uninstall.ps1          removes everything except your settings and shots
-├── build_exe.bat          one-click PyInstaller build
-├── make_ico.py            generates the multi-size application icon
-├── make_docs_images.py    regenerates the screenshots in docs/
-└── run_from_source.bat    launches main.py without a console
-tests/                     offscreen test suite
-```
-
-## Development
-
-```bash
-python -m pip install -r requirements.txt
-python tests/test_pyshot.py      # offscreen, ~40 checks, no windows appear
-python tools/make_docs_images.py # regenerate the screenshots in docs/
-```
-
-When something does not work on a user's machine, the built-in report
-helps: `PyShot.exe --selftest` shows the version, whether recognition is
-available, the installed OCR languages and the settings path.
-
-The suite covers hotkey parsing, icon generation, selection geometry and panel
-placement, window hit-testing, export at 1× and 1.5× scale, file saving with all
-three colour-profile modes, translation coverage, and the remembered-region timer
-flow. It redirects `%APPDATA%` to a temporary directory, so running it never
-touches your real configuration.
-
-Adding a third language means adding one dictionary to `pyshot/i18n.py`; the
-Russian strings in the source double as translation keys.
-
-## Limitations
-
-- **Windows only.** Global hotkeys, window enumeration and the autostart entry
-  use the Win32 API. The rest of the code is portable Qt.
-- **HDR content** is captured through the SDR pipeline, like every GDI-based
-  tool: highlights beyond SDR white are clipped.
-- **Elevated windows** (Task Manager, UAC prompts) are not covered by a
-  non-elevated process — the overlay cannot draw on top of them.
-- No uploading, no sharing, no OCR — by design.
 
 ## License
 
-[MIT](LICENSE) © 2026 Dimario-kurs
+MIT — see [LICENSE](LICENSE).

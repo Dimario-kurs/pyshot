@@ -25,9 +25,7 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from pyshot import shapes as S  # noqa: E402
 from pyshot.config import Config  # noqa: E402
-from pyshot.i18n import set_language  # noqa: E402
-from pyshot.overlay import DRAG_NONE, Overlay  # noqa: E402
-from pyshot.settings_dialog import SettingsDialog  # noqa: E402
+from pyshot.overlay import Overlay  # noqa: E402
 from pyshot.shapes import Shape  # noqa: E402
 
 DOCS = ROOT / "docs"
@@ -85,59 +83,11 @@ def main() -> None:
     editor.show()
     shots.append((editor, "editor.png"))
 
-    # 2. подсветка окна под курсором
-    window = Overlay(desktop("Подсветка окна под курсором"),
-                     QRect(0, 0, W, H), 1.0, cfg,
-                     windows=[QRectF(400, 220, 480, 300),
-                              QRectF(60, 110, 560, 360)])
-    window.resize(W, H)
-    window._cursor_pos = QPointF(640, 370)
-    window._drag = DRAG_NONE
-    window.show()
-    shots.append((window, "window-highlight.png"))
-
-    # 3. режим таймера
-    timer = Overlay(desktop("Съёмка по таймеру"), QRect(0, 0, W, H), 1.0, cfg,
-                    mode="timer", delay=3)
-    timer.resize(W, H)
-    timer.set_selection_from_desktop(QRect(120, 120, 560, 380))
-    timer.show()
-    shots.append((timer, "timer.png"))
-
-    # 4. настройки на двух языках
-    # в документацию не должны попадать реальные пути и имя пользователя
-    demo = {
-        "save_dir": r"C:\Users\User\Desktop\Скриншоты",
-        "filename_template": "screenshot_%Y-%m-%d_%H-%M-%S",
-        "hotkey_region": "Ctrl+4",
-        "hotkey_fullscreen": "Ctrl+5",
-        "hotkey_delayed": "Ctrl+6",
-        "delay_seconds": 3,
-        "color_profile": "monitor",
-    }
-
-    set_language("ru")
-    ru_cfg = Config()
-    ru_cfg.update(demo)
-    ru_cfg["language"] = "ru"
-    ru = SettingsDialog(ru_cfg)
-    ru.show()
-    shots.append((ru, "settings-ru.png"))
-
-    set_language("en")
-    en_cfg = Config()
-    en_cfg.update(demo)
-    en_cfg["language"] = "en"
-    en = SettingsDialog(en_cfg)
-    en.show()
-    shots.append((en, "settings-en.png"))
-
     def grab_all():
         print("сохраняю картинки:")
         for widget, name in shots:
             save(widget, name)
             widget.close()
-        set_language("ru")
         app.quit()
 
     QTimer.singleShot(900, grab_all)
