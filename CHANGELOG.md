@@ -14,6 +14,28 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
   Both copies are now skipped when source and destination are the same file.
   The script lost its accidental double line spacing at the same time.
 
+## [1.1.0] — 2026-09-09
+
+### Added
+
+- **Translation of the text on a shot.** A button in the tool panel (or
+  <kbd>Ctrl</kbd>+<kbd>T</kbd>) recognises the text, translates it and draws
+  it over the original on plates that match the background; pressing it again
+  removes the layer. The translation is included in the saved file and in the
+  clipboard copy.
+- Recognition runs **offline** through the OCR engine built into Windows; only
+  the recognised text is sent to the translation service, and only after an
+  explicit confirmation.
+- **Mixed Russian/English text** is handled: the Russian engine is used as the
+  base because the English one cannot output Cyrillic at all, Latin words are
+  taken from the English engine, and the translator is given the foreign
+  language explicitly so that it does not return mixed text unchanged.
+- Providers: Google (no key, default), DeepL and Azure Translator (API key in
+  the settings). Source and target languages are configurable.
+- Lines are grouped into paragraphs before translation, plates may grow to the
+  right instead of shrinking the font, and background and text colours are
+  sampled from the shot itself.
+
 ## [1.0.2] — 2026-08-24
 
 ### Changed
@@ -91,4 +113,5 @@ First public release.
 
 [1.0.2]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.2
 [1.0.1]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.1
+[1.1.0]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.0
 [1.0.0]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.0

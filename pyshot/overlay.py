@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, QSize, Qt, Signal
+from PySide6.QtCore import (QObject, QPoint, QPointF, QRect, QRectF, QRunnable,
+                            QSize, Qt, QThreadPool, Signal)
 from PySide6.QtGui import (QColor, QFont, QGuiApplication, QImage, QPainter,
                            QPen)
-from PySide6.QtWidgets import QTextEdit, QWidget
+from PySide6.QtWidgets import QMessageBox, QTextEdit, QWidget
 
 from . import shapes as S
 from .i18n import tr
 from .panels import ActionPanel, TimerPanel, ToolPanel
+from .translation_layer import build_layer, draw_layer
 from .shapes import Shape
 
 HANDLE_SIZE = 8
@@ -45,6 +47,33 @@ class _TextEditor(QTextEdit):
             self.committed.emit()
             return
         super().keyPressEvent(event)
+
+
+class _TranslateSignals(QObject):
+    done = Signal(object, str)          # (список абзацев, текст ошибки)
+
+
+class _TranslateTask(QRunnable):
+    """Распознавание и перевод в фоне: интерфейс не должен подвисать."""
+
+    def __init__(self, image: QImage, settings: dict) -> None:
+        super().__init__()
+        self.image = image
+        self.settings = settings
+        self.signals = _TranslateSignals()
+
+    def run(self) -> None:
+        from . import translate as engine
+        try:
+            blocks = engine.translate_image(
+                self.image,
+                source=self.settings["from"],
+                target=self.settings["to"],
+                provider=self.settings["provider"],
+                key=self.settings["key"])
+            self.signals.done.emit(blocks, "")
+        except Exception as error:                  # сеть, OCR, что угодно
+            self.signals.done.emit([], str(error) or type(error).__name__)
 
 
 class Overlay(QWidget):
@@ -90,6 +119,8 @@ class Overlay(QWidget):
         self.font_size = int(cfg["font_size"])
         self.shapes: list[Shape] = []
         self._redo: list[Shape] = []
+        self.translation: list = []                 # слой с переводом
+        self._translating = False
         self._current: Shape | None = None
         self._editor: _TextEditor | None = None
 
@@ -108,6 +139,7 @@ class Overlay(QWidget):
             self.tool_panel.colorChanged.connect(self._set_color)
             self.tool_panel.widthChanged.connect(self._set_width)
             self.tool_panel.undoRequested.connect(self.undo)
+            self.tool_panel.translateRequested.connect(self.toggle_translation)
             self.tool_panel.hide()
 
             self.action_panel = ActionPanel(self)
@@ -172,11 +204,16 @@ class Overlay(QWidget):
 
             painter.save()
             painter.setClipRect(rect)
+            if self.translation:
+                draw_layer(painter, self.translation)
             for shape in self.shapes:
                 shape.draw(painter)
             if self._current is not None:
                 self._current.draw(painter)
             painter.restore()
+
+            if self._translating:
+                self._draw_status(painter, rect, tr("Перевожу…"))
 
             self._draw_frame(painter, rect)
             self._draw_size_badge(painter, rect)
@@ -245,6 +282,23 @@ class Overlay(QWidget):
         painter.setPen(Qt.NoPen)
         painter.setBrush(QColor(20, 20, 20, 210))
         painter.drawRoundedRect(box, 4, 4)
+        painter.setPen(QPen(QColor("#f2f2f2")))
+        painter.drawText(box, Qt.AlignCenter, text)
+
+    def _draw_status(self, painter: QPainter, rect: QRectF, text: str) -> None:
+        """Короткая надпись поверх выделения: идёт перевод или ошибка."""
+        font = QFont()
+        font.setPointSize(11)
+        painter.setFont(font)
+        metrics = painter.fontMetrics()
+        width = metrics.horizontalAdvance(text) + 24
+        height = metrics.height() + 14
+
+        box = QRectF(rect.center().x() - width / 2,
+                     rect.center().y() - height / 2, width, height)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor(20, 20, 20, 220))
+        painter.drawRoundedRect(box, 6, 6)
         painter.setPen(QPen(QColor("#f2f2f2")))
         painter.drawText(box, Qt.AlignCenter, text)
 
@@ -373,6 +427,9 @@ class Overlay(QWidget):
         self.selection = QRectF(pos, pos)
         self.shapes.clear()
         self._redo.clear()
+        self.translation = []
+        if self.tool_panel is not None:
+            self.tool_panel.set_translate_state(False)
         self._hide_panels()
         self.update()
 
@@ -482,6 +539,88 @@ class Overlay(QWidget):
     def _set_width(self, value: int) -> None:
         self.pen_width = int(value)
         self.cfg["pen_width"] = self.pen_width
+
+    # ------------------------------------------------------------------ #
+    # перевод текста на снимке
+    # ------------------------------------------------------------------ #
+    def selection_image(self) -> QImage:
+        """Чистая вырезка выделения в пикселях снимка, без разметки."""
+        rect = self.selection.normalized()
+        scale = self.scale_factor
+        source = QRect(int(round(rect.left() * scale)),
+                       int(round(rect.top() * scale)),
+                       max(1, int(round(rect.width() * scale))),
+                       max(1, int(round(rect.height() * scale))))
+        source = source.intersected(self.image.rect())
+        return self.image.copy(source)
+
+    def toggle_translation(self) -> None:
+        """Кнопка «Перевести»: первое нажатие показывает, второе убирает."""
+        if self._translating:
+            return
+        if self.translation:                        # снимаем слой
+            self.translation = []
+            if self.tool_panel is not None:
+                self.tool_panel.set_translate_state(False)
+            self.update()
+            return
+        if not self.has_selection():
+            if self.tool_panel is not None:
+                self.tool_panel.set_translate_state(False)
+            return
+        if not self._allow_translation():
+            if self.tool_panel is not None:
+                self.tool_panel.set_translate_state(False)
+            return
+
+        self._translating = True
+        if self.tool_panel is not None:
+            self.tool_panel.set_translate_state(False, busy=True)
+        self.update()
+
+        task = _TranslateTask(self.selection_image(), {
+            "from": str(self.cfg["translate_from"]),
+            "to": str(self.cfg["translate_to"]),
+            "provider": str(self.cfg["translate_provider"]),
+            "key": str(self.cfg["translate_key"]),
+        })
+        task.signals.done.connect(self._translation_ready)
+        QThreadPool.globalInstance().start(task)
+
+    def _allow_translation(self) -> bool:
+        """Перевод уходит в интернет — спрашиваем разрешение один раз."""
+        if self.cfg["translate_enabled"]:
+            return True
+        answer = QMessageBox.question(
+            self, tr("Перевод отправляет текст в интернет"),
+            tr("Распознавание текста работает на вашем компьютере, сам снимок "
+               "никуда не уходит.\n\nНо распознанный текст будет отправлен "
+               "сервису перевода. Включить перевод?"),
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if answer != QMessageBox.Yes:
+            return False
+        self.cfg["translate_enabled"] = True
+        self.cfg.save()
+        return True
+
+    def _translation_ready(self, blocks, error: str) -> None:
+        self._translating = False
+        if self.tool_panel is not None:
+            self.tool_panel.set_translate_state(bool(blocks), busy=False)
+
+        if error:
+            self._status_message = error
+            self.translation = []
+            QMessageBox.warning(self, tr("Не удалось перевести"), error)
+            self.update()
+            return
+
+        self.translation = build_layer(
+            self.selection_image(), blocks, self.scale_factor,
+            self.selection.normalized().topLeft())
+        if self.tool_panel is not None:
+            self.tool_panel.set_translate_state(bool(self.translation))
+        self.update()
 
     def undo(self) -> None:
         if self.shapes:
@@ -633,6 +772,9 @@ class Overlay(QWidget):
         if ctrl and key == Qt.Key_Y:
             self.redo()
             return
+        if ctrl and key == Qt.Key_T:
+            self.toggle_translation()
+            return
         if ctrl and key == Qt.Key_C:
             self._on_action("copy")
             return
@@ -688,6 +830,8 @@ class Overlay(QWidget):
         painter.scale(scale, scale)
         painter.translate(-rect.left(), -rect.top())
         painter.setClipRect(rect)
+        if self.translation:
+            draw_layer(painter, self.translation)
         for shape in self.shapes:
             shape.draw(painter)
         painter.end()

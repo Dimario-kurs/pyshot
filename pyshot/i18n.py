@@ -88,6 +88,37 @@ EN = {
     "Снять": "Capture",
     "Отмена (Esc)": "Cancel (Esc)",
 
+    # -- перевод -----------------------------------------------------------
+    "Перевести текст на снимке (Ctrl+T)":
+        "Translate the text on the shot (Ctrl+T)",
+    "Перевожу…": "Translating…",
+    "Перевод отправляет текст в интернет":
+        "Translation sends text over the internet",
+    "Распознавание текста работает на вашем компьютере, сам снимок "
+    "никуда не уходит.\n\nНо распознанный текст будет отправлен "
+    "сервису перевода. Включить перевод?":
+        "Text recognition runs on your computer, the screenshot itself "
+        "never leaves it.\n\nBut the recognised text will be sent to the "
+        "translation service. Enable translation?",
+    "Не удалось перевести": "Translation failed",
+    "Перевод": "Translation",
+    "Переводить на:": "Translate into:",
+    "Язык оригинала:": "Source language:",
+    "определять автоматически": "detect automatically",
+    "Сервис перевода:": "Translation service:",
+    "Google — бесплатно, без ключа": "Google — free, no key needed",
+    "DeepL — нужен ключ": "DeepL — API key required",
+    "Azure Translator — нужен ключ": "Azure Translator — API key required",
+    "Ключ API:": "API key:",
+    "Разрешить отправку текста сервису перевода":
+        "Allow sending text to the translation service",
+    "Распознавание работает офлайн, средствами Windows. "
+    "В интернет уходит только распознанный текст.":
+        "Recognition works offline, using Windows itself. "
+        "Only the recognised text is sent over the internet.",
+    "русский": "Russian",
+    "английский": "English",
+
     # -- настройки ---------------------------------------------------------
     "Настройки PyShot": "PyShot settings",
     "Сохранить": "Save",

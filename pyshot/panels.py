@@ -133,6 +133,21 @@ def make_icon(name: str) -> QIcon:
             p.drawRect(QRectF(7, 3.5, 8, 6))
             p.setBrush(Qt.NoBrush)
             p.drawRect(QRectF(6, 12, 10, 6.5))
+        elif name == "translate":
+            # две плитки с буквами: латиница и кириллица
+            _stroke(p, 1.5)
+            p.drawRoundedRect(QRectF(2, 2, 12.5, 12.5), 2.5, 2.5)
+            f = QFont()
+            f.setPointSize(7)
+            f.setBold(True)
+            p.setFont(f)
+            p.drawText(QRectF(2, 2, 12.5, 12.5), Qt.AlignCenter, "A")
+
+            p.setPen(Qt.NoPen)
+            p.setBrush(QBrush(FG))
+            p.drawRoundedRect(QRectF(7.5, 7.5, 12.5, 12.5), 2.5, 2.5)
+            p.setPen(QPen(QColor("#ffffff")))
+            p.drawText(QRectF(7.5, 7.5, 12.5, 12.5), Qt.AlignCenter, "Я")
         elif name == "close":
             _stroke(p, 2.2)
             p.drawLine(QPointF(5, 5), QPointF(17, 17))
@@ -261,6 +276,7 @@ class ToolPanel(QWidget):
     colorChanged = Signal(QColor)
     widthChanged = Signal(int)
     undoRequested = Signal()
+    translateRequested = Signal()
 
     TOOLS = [
         (S.PEN, "Карандаш"),
@@ -310,7 +326,19 @@ class ToolPanel(QWidget):
         undo_btn.clicked.connect(self.undoRequested.emit)
         box.addWidget(undo_btn)
 
+        box.addWidget(_separator())
+        self.translate_btn = _button(
+            "translate", tr("Перевести текст на снимке (Ctrl+T)"),
+            checkable=True)
+        self.translate_btn.clicked.connect(self.translateRequested.emit)
+        box.addWidget(self.translate_btn)
+
         self.adjustSize()
+
+    def set_translate_state(self, active: bool, busy: bool = False) -> None:
+        """Подсветка кнопки: перевод показан или идёт работа."""
+        self.translate_btn.setChecked(active)
+        self.translate_btn.setEnabled(not busy)
 
     # -- поведение ---------------------------------------------------------
     def _toggle(self, tool: str) -> None:

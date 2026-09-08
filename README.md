@@ -66,6 +66,7 @@ Two things it does that its inspirations do separately:
 | **Timer** | Off / 3 / 5 / 10 seconds. The overlay disappears *before* the countdown, so the screen stays live and popups stay open. |
 | **Annotations** | Pencil, line, arrow, rectangle, marker, text; 12-colour palette plus a colour picker; line width 1–20; undo/redo. |
 | **Output** | PNG or JPEG with adjustable quality, `strftime` filename template, automatic de-duplication of names, clipboard copy, optional "open folder" and toast notification. |
+| **On-shot translation** | A toolbar button: text is recognised offline by Windows, translated, and drawn over the original on matching plates. Press again to remove it. See [Translation](#translating-the-text-on-a-shot). |
 | **Bilingual** | Russian and English, switched in Settings, applied to the tray menu immediately. |
 | **Correct colours** | Saved files are tagged with the display's ICC profile, so a screenshot looks exactly like the screen it came from — see [Colour accuracy](#colour-accuracy). |
 | **Full resolution** | On a 150 % display a 500 × 320 selection is saved as 750 × 480 real pixels. |
@@ -194,6 +195,50 @@ Text is typed directly on the screenshot; the marker is a translucent chisel
 stroke; arrow heads scale with the line width. Annotations are rendered into the
 final image at full device resolution, not at the on-screen size.
 
+## Translating the text on a shot
+
+<img src="docs/translate.png" alt="Translation drawn over the shot" width="820">
+
+The **АЯ** button in the right panel, under the undo arrow, or
+<kbd>Ctrl</kbd>+<kbd>T</kbd>. The first press translates, the second removes
+the translation and brings the original frame back. The translation is part of
+the saved file and of the clipboard copy.
+
+How it works:
+
+1. **Recognition runs offline**, using the OCR engine built into Windows. No
+   third-party programs, and the screenshot never leaves the machine. It needs
+   Windows language packs: *Settings → Time & language → Language & region*.
+2. Lines are merged into paragraphs, so the translation reads as prose rather
+   than as disconnected lines.
+3. **Translation goes over the internet.** Only the recognised text is sent,
+   never the image. The program asks for permission the first time, and there
+   is a separate checkbox in the settings.
+4. Plates are drawn over the original: background and text colours are taken
+   from the shot itself, and the font size is fitted so the translation fits.
+
+### Mixed-language text
+
+When Russian and English are mixed on one shot, the program sorts it out. The
+English recogniser physically cannot output Cyrillic and turns Russian words
+into look-alike Latin, so the Russian engine is used as the base — it reads
+both alphabets. Latin words are then taken from the English engine, which is
+more accurate on them. The translator is given the foreign language
+explicitly: with auto-detection it sees Cyrillic, declares the whole text
+Russian and returns it unchanged.
+
+Russian words stay untouched, English ones become Russian.
+
+### Translation services
+
+| Service | Key | Notes |
+|---|---|---|
+| **Google** | not needed | works out of the box, the default; the endpoint is undocumented and may stop responding |
+| **DeepL** | required | best quality for European languages |
+| **Azure Translator** | required | 2M characters per month for free |
+
+The key goes into *Settings → Translation*.
+
 ## Settings
 
 Tray → **Settings…**
@@ -270,7 +315,9 @@ pyshot/
 ├── settings_dialog.py     settings window
 ├── hotkeys.py             global hotkeys via RegisterHotKey + native event filter
 ├── config.py              JSON settings, autostart registry entry
-└── i18n.py                Russian and English interface strings
+├── i18n.py                Russian and English interface strings
+├── translate.py           text recognition and the translation providers
+└── translation_layer.py   plates with the translation: colours and fitting
 Установить PyShot.bat       per-user installer entry point
 tools/
 ├── install.ps1            install to Program Files (or --PerUser), shortcut,
@@ -290,6 +337,10 @@ python -m pip install -r requirements.txt
 python tests/test_pyshot.py      # offscreen, ~40 checks, no windows appear
 python tools/make_docs_images.py # regenerate the screenshots in docs/
 ```
+
+When something does not work on a user's machine, the built-in report
+helps: `PyShot.exe --selftest` shows the version, whether recognition is
+available, the installed OCR languages and the settings path.
 
 The suite covers hotkey parsing, icon generation, selection geometry and panel
 placement, window hit-testing, export at 1× and 1.5× scale, file saving with all

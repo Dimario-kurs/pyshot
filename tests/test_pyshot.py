@@ -29,7 +29,7 @@ TMP = Path(tempfile.mkdtemp(prefix="pyshot-tests-"))
 os.environ["APPDATA"] = str(TMP)            # конфиг пишется во временную папку
 
 from PySide6.QtCore import QPointF, QRect, QRectF, Qt  # noqa: E402
-from PySide6.QtGui import QColor, QImage, QPainter  # noqa: E402
+from PySide6.QtGui import QColor, QFont, QImage, QPainter  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from pyshot import i18n, shapes as S, storage  # noqa: E402
@@ -263,6 +263,83 @@ pyshot._on_tray_activated(QSystemTrayIcon.ActivationReason.Trigger)
 check("левый клик по значку открывает настройки", opened == [True])
 
 pyshot.hotkeys.unregister_all()
+
+# --------------------------------------------------------------------------
+print("\nперевод: разбор строк и слой")
+from pyshot import translate as tr_engine  # noqa: E402
+from pyshot import translation_layer as tr_layer  # noqa: E402
+
+def line(text, x, y, w, h):
+    return tr_engine.Line(text=text, rect=QRectF(x, y, w, h))
+
+# строки одного абзаца идут подряд и склеиваются
+paragraph = [line("Today is my birthday.", 30, 40, 180, 18),
+             line("Tomorrow I need to go to the store", 30, 70, 300, 18),
+             line("and buy antifreeze.", 30, 100, 160, 18)]
+blocks = tr_engine.group_lines(paragraph)
+check("абзац склеен в один блок", len(blocks) == 1, f"блоков: {len(blocks)}")
+check("текст блока собран целиком",
+      blocks[0].text.endswith("and buy antifreeze."))
+
+# далеко отстоящая строка — отдельный блок
+separate = paragraph + [line("Footer note", 30, 400, 120, 18)]
+blocks = tr_engine.group_lines(separate)
+check("далёкая строка отделена", len(blocks) == 2, f"блоков: {len(blocks)}")
+
+# строка в другой колонке тоже отдельно
+columns = [line("Left column", 30, 40, 120, 18),
+           line("Right column", 600, 44, 130, 18)]
+check("соседняя колонка не приклеивается",
+      len(tr_engine.group_lines(columns)) == 2)
+
+check("пустой список не ломает разбор", tr_engine.group_lines([]) == [])
+
+# --- слой: координаты, цвета, кегль ---------------------------------------
+canvas = QImage(400, 200, QImage.Format_RGB32)
+canvas.fill(QColor("#eef1f6"))
+painter = QPainter(canvas)
+painter.setPen(QColor("#202124"))
+font = QFont("Segoe UI")
+font.setPointSize(12)
+painter.setFont(font)
+painter.drawText(QRectF(20, 20, 360, 40), Qt.AlignLeft | Qt.AlignVCenter,
+                 "Hello world")
+painter.end()
+
+background, foreground = tr_layer.estimate_colours(canvas, QRectF(22, 26, 90, 18))
+check("цвет подложки взят из картинки",
+      abs(background.red() - 238) < 12 and abs(background.blue() - 246) < 12,
+      background.name())
+check("цвет букв тёмный на светлом фоне",
+      foreground.lightness() < background.lightness() - 60,
+      f"{foreground.name()} на {background.name()}")
+
+block = tr_engine.Block(lines=[line("Hello world", 22, 26, 90, 18)])
+block.translation = "Привет, мир"
+layer = tr_layer.build_layer(canvas, [block], scale=1.5,
+                             origin=QPointF(100, 50))
+check("слой построен", len(layer) == 1)
+if layer:
+    rect = layer[0].rect
+    # 22/1.5 + 100 = 114.7 с поправкой на отступ подложки
+    check("координаты пересчитаны с учётом масштаба и смещения",
+          abs(rect.left() - (100 + 22 / 1.5 - tr_layer.PAD)) < 0.6,
+          f"left={rect.left():.1f}")
+    check("кегль в разумных пределах",
+          tr_layer.MIN_FONT <= layer[0].font_size <= 20,
+          str(layer[0].font_size))
+
+# длинный текст ужимается, короткий — нет
+big = tr_layer.fit_font_size("Коротко", QRectF(0, 0, 300, 40), 14)
+small = tr_layer.fit_font_size("Очень длинная строка, которая никак не помещается "
+                               "в отведённое ей место", QRectF(0, 0, 120, 20), 14)
+check("длинный текст ужимается сильнее короткого", small < big,
+      f"{small} против {big}")
+
+# блок без перевода в слой не попадает
+empty = tr_engine.Block(lines=[line("Hello", 22, 26, 40, 18)])
+check("непереведённый блок пропускается",
+      tr_layer.build_layer(canvas, [empty], 1.0, QPointF(0, 0)) == [])
 
 # --------------------------------------------------------------------------
 print()

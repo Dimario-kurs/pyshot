@@ -4,7 +4,7 @@ cd /d "%~dp0.."
 py -m pip install --quiet --upgrade pyinstaller || goto :err
 py tools\make_ico.py || goto :err
 py -m PyInstaller --noconfirm --clean --noconsole --onefile ^
-    --name PyShot --icon assets\PyShot.ico ^
+    --name PyShot --icon assets\PyShot.ico --collect-all winrt ^
     --exclude-module PySide6.QtQml --exclude-module PySide6.QtQuick ^
     --exclude-module PySide6.QtQuickWidgets --exclude-module PySide6.Qt3DCore ^
     --exclude-module PySide6.QtWebEngineCore --exclude-module PySide6.QtMultimedia ^

@@ -83,6 +83,7 @@ class SettingsDialog(QDialog):
         layout.addWidget(self._build_language())
         layout.addWidget(self._build_saving())
         layout.addWidget(self._build_hotkeys())
+        layout.addWidget(self._build_translate())
         layout.addWidget(self._build_timer())
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -186,6 +187,52 @@ class SettingsDialog(QDialog):
         form.addRow("", hint)
         return box
 
+    def _build_translate(self) -> QGroupBox:
+        box = QGroupBox(tr("Перевод"))
+        form = QFormLayout(box)
+
+        self.translate_to = QComboBox()
+        self.translate_to.addItem(tr("русский"), "ru")
+        self.translate_to.addItem(tr("английский"), "en")
+        index = self.translate_to.findData(str(self.cfg["translate_to"]))
+        self.translate_to.setCurrentIndex(index if index >= 0 else 0)
+        form.addRow(tr("Переводить на:"), self.translate_to)
+
+        self.translate_from = QComboBox()
+        self.translate_from.addItem(tr("определять автоматически"), "auto")
+        self.translate_from.addItem(tr("английский"), "en")
+        self.translate_from.addItem(tr("русский"), "ru")
+        index = self.translate_from.findData(str(self.cfg["translate_from"]))
+        self.translate_from.setCurrentIndex(index if index >= 0 else 0)
+        form.addRow(tr("Язык оригинала:"), self.translate_from)
+
+        self.translate_provider = QComboBox()
+        self.translate_provider.addItem(tr("Google — бесплатно, без ключа"),
+                                        "google")
+        self.translate_provider.addItem(tr("DeepL — нужен ключ"), "deepl")
+        self.translate_provider.addItem(tr("Azure Translator — нужен ключ"),
+                                        "azure")
+        index = self.translate_provider.findData(
+            str(self.cfg["translate_provider"]))
+        self.translate_provider.setCurrentIndex(index if index >= 0 else 0)
+        form.addRow(tr("Сервис перевода:"), self.translate_provider)
+
+        self.translate_key = QLineEdit(str(self.cfg["translate_key"]))
+        self.translate_key.setEchoMode(QLineEdit.Password)
+        form.addRow(tr("Ключ API:"), self.translate_key)
+
+        self.translate_enabled = QCheckBox(
+            tr("Разрешить отправку текста сервису перевода"))
+        self.translate_enabled.setChecked(bool(self.cfg["translate_enabled"]))
+        form.addRow("", self.translate_enabled)
+
+        hint = QLabel(tr("Распознавание работает офлайн, средствами Windows. "
+                         "В интернет уходит только распознанный текст."))
+        hint.setStyleSheet("color: gray;")
+        hint.setWordWrap(True)
+        form.addRow("", hint)
+        return box
+
     def _build_timer(self) -> QGroupBox:
         box = QGroupBox(tr("Таймер и запуск"))
         form = QFormLayout(box)
@@ -237,6 +284,11 @@ class SettingsDialog(QDialog):
             "hotkey_region": self.hk_region.text().strip(),
             "hotkey_fullscreen": self.hk_full.text().strip(),
             "hotkey_delayed": self.hk_delay.text().strip(),
+            "translate_to": self.translate_to.currentData(),
+            "translate_from": self.translate_from.currentData(),
+            "translate_provider": self.translate_provider.currentData(),
+            "translate_key": self.translate_key.text().strip(),
+            "translate_enabled": self.translate_enabled.isChecked(),
             "delay_seconds": self.delay.value(),
             "show_countdown": self.show_countdown.isChecked(),
             "timer_opens_editor": self.timer_editor.isChecked(),

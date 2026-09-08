@@ -58,6 +58,12 @@ DEFAULTS = {
     "show_countdown": True,
     # после снимка по таймеру открывать редактор, а не сохранять молча
     "timer_opens_editor": True,
+    # перевод текста на снимке
+    "translate_enabled": False,      # согласие на отправку текста в интернет
+    "translate_to": "ru",
+    "translate_from": "auto",
+    "translate_provider": "google",  # google | deepl | azure
+    "translate_key": "",
     # инструменты рисования
     "pen_color": "#ff3b30",
     "pen_width": 3,

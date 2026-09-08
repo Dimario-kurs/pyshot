@@ -58,7 +58,7 @@ jobs:
       - name: Build single-file executable
         run: >
           python -m PyInstaller --noconfirm --clean --noconsole --onefile
-          --name PyShot --icon assets/PyShot.ico
+          --name PyShot --icon assets/PyShot.ico --collect-all winrt
           --exclude-module PySide6.QtQml --exclude-module PySide6.QtQuick
           --exclude-module PySide6.QtQuickWidgets
           --exclude-module PySide6.Qt3DCore
