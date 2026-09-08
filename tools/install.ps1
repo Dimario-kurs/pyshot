@@ -97,6 +97,7 @@ $running = Get-Process -Name $AppName -ErrorAction SilentlyContinue
 if ($running) {
     Write-Step 'Закрываю запущенную копию…'
     $running | Stop-Process -Force
+    try { $running | Wait-Process -Timeout 10 -ErrorAction Stop } catch {}
     Start-Sleep -Seconds 2
 }
 
@@ -122,10 +123,29 @@ function Test-SamePath($a, $b) {
     return ([IO.Path]::GetFullPath($a)) -ieq ([IO.Path]::GetFullPath($b))
 }
 
+# Закрытая программа отпускает свой файл не мгновенно: у собранного exe
+# остаётся дочерний процесс распаковщика, и копирование падает с «файл
+# используется другим процессом». Поэтому ждём и повторяем.
+function Copy-WhenFree($from, $to) {
+    for ($attempt = 1; $attempt -le 12; $attempt++) {
+        try {
+            Copy-Item -LiteralPath $from -Destination $to -Force -ErrorAction Stop
+            return $true
+        } catch [System.IO.IOException] {
+            if ($attempt -eq 1) { Write-Step 'Жду, пока файл освободится…' }
+            Start-Sleep -Milliseconds 700
+        }
+    }
+    return $false
+}
+
 if (Test-SamePath $source $targetExe) {
     Write-Step 'Программа уже на месте — копирование пропущено'
-} else {
-    Copy-Item -LiteralPath $source -Destination $targetExe -Force
+} elseif (-not (Copy-WhenFree $source $targetExe)) {
+    Write-Host ''
+    Write-Host 'Не удалось заменить файл программы: он занят.' -ForegroundColor Red
+    Write-Host 'Закройте PyShot через значок в трее и запустите установку снова.'
+    exit 1
 }
 
 $uninstallSource = Join-Path $here 'uninstall.ps1'

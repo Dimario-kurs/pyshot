@@ -14,6 +14,15 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
   show that the program is working, and the explanation only added noise to
   the middle of the shot.
 
+### Fixed
+
+- **Updating over a running copy failed.** The installer stopped the program
+  and copied at once, but a frozen build hands its file back a moment later,
+  so the copy died with «the file is in use by another process» — and the
+  elevated window closed before anyone could read it. It now waits for the
+  processes to end and retries the copy for about eight seconds, saying so if
+  it still cannot.
+
 ## [1.1.5] — 2026-09-09
 
 ### Changed
