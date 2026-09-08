@@ -92,6 +92,9 @@ EN = {
     "Перевести текст на снимке (Ctrl+T)":
         "Translate the text on the shot (Ctrl+T)",
     "Перевожу…": "Translating…",
+    "Перевожу": "Translating",
+    "подождите — надпись исчезнет сама":
+        "please wait — this notice will disappear by itself",
     "Перевод отправляет текст в интернет":
         "Translation sends text over the internet",
     "Распознавание текста работает на вашем компьютере, сам снимок "

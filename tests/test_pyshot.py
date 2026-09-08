@@ -37,7 +37,8 @@ def _cleanup_temp() -> None:
     shutil.rmtree(TMP, ignore_errors=True)
 
 from PySide6.QtCore import QPointF, QRect, QRectF, Qt  # noqa: E402
-from PySide6.QtGui import QColor, QFont, QImage, QPainter  # noqa: E402
+from PySide6.QtGui import (QColor, QFont, QGuiApplication, QImage,  # noqa: E402
+                           QPainter)
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from pyshot import i18n, shapes as S, storage  # noqa: E402
@@ -242,6 +243,41 @@ check("область вне экрана — просит выбрать зан
 if pyshot.overlay is not None:
     pyshot.overlay.close()
     app.processEvents()
+
+# --- обратный отсчёт: по центру кадра и по его размеру --------------------
+from pyshot.countdown import Countdown  # noqa: E402
+
+full = Countdown(3, "весь экран", target=QRect(0, 0, 2560, 1440))
+part = Countdown(3, "область", target=QRect(400, 300, 320, 180))
+plain = Countdown(3, "без рамки")
+check("на весь экран цифры крупные", full._scale == Countdown.MAX_SCALE,
+      f"множитель: {full._scale}")
+check("на маленькой области цифры мельче", part._scale < 1.0,
+      f"множитель: {part._scale}")
+check("окошко меньше самого кадра",
+      part.width() < 320 and part.height() < 180,
+      f"{part.width()}x{part.height()}")
+check("без известной рамки размер обычный", plain._scale == 1.0)
+check("крупный отсчёт не разрастается без предела",
+      full.width() == round(Countdown.WIDTH * Countdown.MAX_SCALE))
+
+screen = QGuiApplication.primaryScreen().availableGeometry()
+target = QRect(screen.left() + 60, screen.top() + 60,
+               min(400, screen.width() - 120), min(300, screen.height() - 120))
+centred = Countdown(3, "область", target=target)
+centred._place()
+offset = (centred.geometry().center() - target.center()).manhattanLength()
+check("отсчёт встаёт в середину кадра", offset <= 2, f"смещение: {offset}")
+
+far = Countdown(3, "область", target=QRect(screen.right() - 30,
+                                           screen.top() + 40, 300, 200))
+far._place()
+check("отсчёт не уезжает за край экрана",
+      far.geometry().right() <= screen.right() + 1,
+      f"правый край: {far.geometry().right()} при {screen.right()}")
+for widget in (full, part, plain, centred, far):
+    widget.deleteLater()
+app.processEvents()
 
 # --------------------------------------------------------------------------
 print("\nзащита от зависания при открытом окне")

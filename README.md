@@ -176,7 +176,10 @@ background is never offered as a "window".
 it, or draw a new one — and shows a small panel with the delay and a *Capture*
 button. Press it and the overlay disappears at once; the countdown runs over the
 live screen, so you can open a tray flyout, a context menu or a tooltip and keep
-the mouse still. When the countdown ends, that rectangle is saved.
+the mouse still. When the countdown ends, that rectangle is saved. The countdown
+stands in the middle of the frame it is about to capture and is sized to it —
+large digits for a full screen, small ones for a small region — so it never
+lands on another monitor or covers the whole shot.
 
 Set the timer to **off** and *Capture* fires immediately. The frame is stored in
 the settings file and survives restarts.

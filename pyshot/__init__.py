@@ -1,3 +1,3 @@
 """PyShot — простой клон Lightshot на Python + Qt."""
 
-__version__ = "1.1.4"
+__version__ = "1.1.5"

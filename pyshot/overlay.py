@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from PySide6.QtCore import (QObject, QPoint, QPointF, QRect, QRectF, QRunnable,
                             QSize, Qt, QThreadPool, QTimer, Signal)
-from PySide6.QtGui import (QColor, QFont, QGuiApplication, QImage, QPainter,
-                           QPen)
+from PySide6.QtGui import (QColor, QFont, QFontMetricsF, QGuiApplication,
+                           QImage, QPainter, QPen)
 from PySide6.QtWidgets import QMessageBox, QTextEdit, QWidget
 
 from . import shapes as S
@@ -125,6 +125,10 @@ class Overlay(QWidget):
         self._translating = False
         self._translate_task = None                 # ссылка живёт до ответа
         self._translate_run = 0                     # номер запуска: старые ответы игнорируем
+        self._busy_phase = 0                        # многоточие в надписи «Перевожу»
+        self._busy_timer = QTimer(self)
+        self._busy_timer.setInterval(350)
+        self._busy_timer.timeout.connect(self._busy_tick)
         self._current: Shape | None = None
         self._editor: _TextEditor | None = None
 
@@ -217,7 +221,9 @@ class Overlay(QWidget):
             painter.restore()
 
             if self._translating:
-                self._draw_status(painter, rect, tr("Перевожу…"))
+                dots = "." * (1 + self._busy_phase % 3)
+                self._draw_status(painter, rect, tr("Перевожу") + dots,
+                                  tr("подождите — надпись исчезнет сама"))
 
             self._draw_frame(painter, rect)
             self._draw_size_badge(painter, rect)
@@ -289,22 +295,57 @@ class Overlay(QWidget):
         painter.setPen(QPen(QColor("#f2f2f2")))
         painter.drawText(box, Qt.AlignCenter, text)
 
-    def _draw_status(self, painter: QPainter, rect: QRectF, text: str) -> None:
-        """Короткая надпись поверх выделения: идёт перевод или ошибка."""
+    def _busy_tick(self) -> None:
+        """Многоточие «бежит», пока идёт перевод: видно, что мы не зависли."""
+        self._busy_phase += 1
+        self.update()
+
+    def _draw_status(self, painter: QPainter, rect: QRectF, text: str,
+                     note: str = "") -> None:
+        """Надпись посреди выделения: идёт перевод или ошибка.
+
+        Кегль привязан к размеру кадра — на снимке во весь экран надпись
+        должна быть заметной, на маленькой области не должна закрыть собой
+        всё, что человек снимает.
+        """
+        size = max(12.0, min(26.0, min(rect.width() / 24, rect.height() / 11)))
         font = QFont()
-        font.setPointSize(11)
+        font.setPointSizeF(size)
+        font.setBold(True)
         painter.setFont(font)
         metrics = painter.fontMetrics()
-        width = metrics.horizontalAdvance(text) + 24
-        height = metrics.height() + 14
+        width = metrics.horizontalAdvance(text)
+        height = metrics.height()
 
-        box = QRectF(rect.center().x() - width / 2,
-                     rect.center().y() - height / 2, width, height)
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(QColor(20, 20, 20, 220))
-        painter.drawRoundedRect(box, 6, 6)
+        small = QFont(font)
+        small.setPointSizeF(max(9.0, size * 0.62))
+        small.setBold(False)
+        if note:
+            note_metrics = QFontMetricsF(small)
+            width = max(width, note_metrics.horizontalAdvance(note))
+            height += note_metrics.height() + size * 0.3
+
+        pad = size * 1.2
+        box = QRectF(rect.center().x() - (width + pad * 2) / 2,
+                     rect.center().y() - (height + pad * 1.3) / 2,
+                     width + pad * 2, height + pad * 1.3)
+        painter.setPen(QPen(QColor(255, 255, 255, 70), 1))
+        painter.setBrush(QColor(20, 20, 20, 232))
+        painter.drawRoundedRect(box, size * 0.5, size * 0.5)
         painter.setPen(QPen(QColor("#f2f2f2")))
-        painter.drawText(box, Qt.AlignCenter, text)
+
+        if not note:
+            painter.drawText(box, Qt.AlignCenter, text)
+            return
+
+        upper = QRectF(box.left(), box.top() + pad * 0.6, box.width(),
+                       metrics.height())
+        painter.drawText(upper, Qt.AlignCenter, text)
+        painter.setFont(small)
+        painter.setPen(QPen(QColor(255, 255, 255, 185)))
+        lower = QRectF(box.left(), upper.bottom() + size * 0.2, box.width(),
+                       box.bottom() - upper.bottom())
+        painter.drawText(lower, Qt.AlignHCenter | Qt.AlignTop, note)
 
     def _draw_crosshair(self, painter: QPainter) -> None:
         if self._cursor_pos.x() < 0:
@@ -563,6 +604,7 @@ class Overlay(QWidget):
         if self._translating:                       # идёт работа — отменяем
             self._translate_run += 1
             self._translating = False
+            self._busy_timer.stop()
             self._translate_task = None
             if self.tool_panel is not None:
                 self.tool_panel.set_translate_state(False, busy=False)
@@ -584,6 +626,8 @@ class Overlay(QWidget):
             return
 
         self._translating = True
+        self._busy_phase = 0
+        self._busy_timer.start()
         if self.tool_panel is not None:
             self.tool_panel.set_translate_state(False, busy=True)
         self.update()
@@ -612,6 +656,7 @@ class Overlay(QWidget):
         if not self._translating or run != self._translate_run:
             return
         self._translating = False
+        self._busy_timer.stop()
         self._translate_task = None
         if self.tool_panel is not None:
             self.tool_panel.set_translate_state(False, busy=False)
@@ -641,6 +686,7 @@ class Overlay(QWidget):
             return                                  # ответ от отменённого запуска
         self._translate_task = None
         self._translating = False
+        self._busy_timer.stop()
         if self.tool_panel is not None:
             self.tool_panel.set_translate_state(bool(blocks), busy=False)
 

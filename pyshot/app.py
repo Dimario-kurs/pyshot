@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QPointF, QRect, QRectF, Qt, QTimer
-from PySide6.QtGui import (QAction, QBrush, QColor, QGuiApplication, QIcon,
+from PySide6.QtGui import (QAction, QBrush, QColor, QCursor, QGuiApplication, QIcon,
                            QImage, QLinearGradient, QPainter, QPainterPath,
                            QPen, QPixmap, QRadialGradient)
 from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon, QWidget
@@ -328,11 +328,22 @@ class PyShotApp(QObject):
             return
 
         countdown = Countdown(seconds,
-                              notes.get(mode, tr("снимок по таймеру")))
+                              notes.get(mode, tr("снимок по таймеру")),
+                              target=self._countdown_target(mode))
         countdown.finished.connect(lambda: self._countdown_done(mode))
         countdown.cancelled.connect(self._countdown_cancelled)
         self.countdown = countdown
         countdown.start()
+
+    def _countdown_target(self, mode: str) -> QRect | None:
+        """Какой кусок экрана попадёт в кадр — по нему ставим отсчёт."""
+        if mode == "last":
+            return self.last_region()
+        if mode == "full":
+            screen = (QGuiApplication.screenAt(QCursor.pos())
+                      or QGuiApplication.primaryScreen())
+            return screen.geometry() if screen is not None else None
+        return None                     # область ещё не выбрана, ставим по центру
 
     def _countdown_done(self, mode: str) -> None:
         self.countdown = None
@@ -387,7 +398,8 @@ class PyShotApp(QObject):
         if not self.cfg["show_countdown"]:
             QTimer.singleShot(seconds * 1000, self.capture_last_region)
             return
-        countdown = Countdown(seconds, tr("снимок выбранной области"))
+        countdown = Countdown(seconds, tr("снимок выбранной области"),
+                              target=self.last_region())
         countdown.finished.connect(lambda: self._countdown_done("last"))
         countdown.cancelled.connect(self._countdown_cancelled)
         self.countdown = countdown

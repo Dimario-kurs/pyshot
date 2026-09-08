@@ -6,6 +6,24 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.5] — 2026-09-09
+
+### Changed
+
+- **The countdown now belongs to the frame, not to the screen.** It used to sit
+  at the top of the primary screen — far outside the area being captured, and
+  on a second monitor out of sight altogether. It is now centred on the region
+  that is about to be shot, the way macOS does it, and is kept inside the
+  screen it lands on.
+- **The countdown is sized to the frame.** A full-screen shot gets large
+  digits, a small region gets small ones: the window is scaled so that the
+  frame stays at least twice its size, between 0.45× and 3×.
+- **It is now obvious that translation has started.** The «Translating» notice
+  in the middle of the selection is larger, scaled to the size of the frame,
+  carries a «please wait» line and animates its dots — so a slow translation
+  no longer looks like a freeze. It disappears by itself once the text is
+  ready.
+
 ## [1.1.4] — 2026-09-09
 
 ### Changed
@@ -195,6 +213,7 @@ First public release.
   without elevation. `tools/uninstall.ps1` removes everything except the user's
   settings and screenshots.
 
+[1.1.5]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.5
 [1.1.4]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.1.4
 [1.0.2]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.2
 [1.0.1]: https://github.com/Dimario-kurs/pyshot/releases/tag/v1.0.1
