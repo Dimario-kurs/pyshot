@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.8 — 2026-10-12
+
+- The timed shot no longer opens over the whole screen. A capture that covers
+  almost the entire screen — a maximized window picked by a click, or a
+  select-all — no longer replaces the remembered frame, so the frame you
+  actually use for timed shots survives both ordinary captures and a reboot.
+
 ## 1.1.7 — 2026-09-09
 
 - The installer no longer fails when it updates a copy that is running.

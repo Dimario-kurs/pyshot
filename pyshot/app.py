@@ -424,11 +424,32 @@ class PyShotApp(QObject):
             return
         sel = overlay.selection.normalized()
         origin = overlay.geometry().topLeft()
-        self.cfg["last_region"] = [int(round(origin.x() + sel.x())),
-                                   int(round(origin.y() + sel.y())),
-                                   int(round(sel.width())),
-                                   int(round(sel.height()))]
+        rect = QRect(int(round(origin.x() + sel.x())),
+                     int(round(origin.y() + sel.y())),
+                     int(round(sel.width())),
+                     int(round(sel.height())))
+
+        # Рамку во весь экран запоминать незачем: по таймеру она ничем не
+        # отличается от снимка всего экрана, зато затирает ту область, ради
+        # которой таймер и нужен. А развёрнутое окно по клику — это как раз
+        # почти весь экран.
+        if self._covers_screen(rect):
+            return
+
+        self.cfg["last_region"] = [rect.x(), rect.y(),
+                                   rect.width(), rect.height()]
         self.cfg.save()
+
+    @staticmethod
+    def _covers_screen(rect: QRect) -> bool:
+        """Занимает ли выделение почти весь экран, на котором лежит."""
+        screen = (QGuiApplication.screenAt(rect.center())
+                  or QGuiApplication.primaryScreen())
+        if screen is None:
+            return False
+        area = screen.geometry()
+        return (rect.width() >= area.width() * 0.92
+                and rect.height() >= area.height() * 0.85)
 
     def capture_last_region(self) -> None:
         """Кадр по таймеру: открываем редактор либо сохраняем сразу."""

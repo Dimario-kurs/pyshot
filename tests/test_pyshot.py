@@ -213,6 +213,23 @@ pyshot._remember_region()
 pyshot.overlay = None
 check("область запомнена", pyshot.last_region() == QRect(60, 50, 420, 260))
 
+# снимок во весь экран (или развёрнутого окна по клику) не должен затирать
+# рамку таймера — иначе Ctrl+3 после него открывается во весь экран
+screen = QGuiApplication.primaryScreen().geometry()
+pyshot.overlay = overlay
+overlay.selection = QRectF(0, 0, screen.width(), screen.height())
+pyshot._remember_region()
+pyshot.overlay = None
+check("рамка во весь экран прежнюю не затирает",
+      pyshot.last_region() == QRect(60, 50, 420, 260),
+      f"стало: {pyshot.last_region()}")
+check("почти весь экран — это весь экран",
+      PyShotApp._covers_screen(QRect(0, 0, screen.width(),
+                                     int(screen.height() * 0.95))))
+check("широкая полоса остаётся рамкой",
+      not PyShotApp._covers_screen(QRect(0, 200, screen.width(), 300)))
+overlay.selection = QRectF(60, 50, 420, 260)
+
 # режим «сохранять сразу»
 pyshot.cfg["timer_opens_editor"] = False
 pyshot.capture_last_region()
