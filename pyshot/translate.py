@@ -612,10 +612,16 @@ def _batch_azure(texts: list, source: str, target: str, key: str) -> list:
 
 
 def _translate_google(text: str, source: str, target: str) -> str:
+    # Текст уходит телом запроса, а не в адресе. В адресной строке он попал бы
+    # в журналы всех промежуточных узлов, а на снимке может оказаться что
+    # угодно — переписка, фамилии, номера.
     url = ("https://translate.googleapis.com/translate_a/single"
-           f"?client=gtx&sl={source or 'auto'}&tl={target}&dt=t&q="
-           + urllib.parse.quote(text))
-    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+           f"?client=gtx&sl={source or 'auto'}&tl={target}&dt=t")
+    body = urllib.parse.urlencode({"q": text}).encode("utf-8")
+    request = urllib.request.Request(
+        url, data=body,
+        headers={"User-Agent": "Mozilla/5.0",
+                 "Content-Type": "application/x-www-form-urlencoded;charset=utf-8"})
     with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT) as response:
         data = json.load(response)
     return "".join(part[0] for part in data[0] if part and part[0])

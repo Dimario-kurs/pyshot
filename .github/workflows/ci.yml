@@ -6,6 +6,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+# проверке достаточно читать код: токен не должен мочь ничего записать
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Tests (Windows)

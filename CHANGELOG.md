@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.9 — 2026-10-12
+
+- The text to be translated now travels in the request body instead of the
+  address. In the URL it would have been written down by every proxy and
+  server log along the way, and a screenshot can hold anything — private
+  correspondence, names, numbers.
+- The test workflow is explicitly limited to reading the repository.
+
 ## 1.1.8 — 2026-10-12
 
 - The timed shot no longer opens over the whole screen. A capture that covers
